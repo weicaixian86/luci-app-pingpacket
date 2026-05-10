@@ -148,7 +148,7 @@ jobs:
           set -o pipefail
           cd sdk
           make defconfig
-          make -rqp 2>/dev/null > make-${PACKAGE_NAME}.db
+          make -rpn 2>/dev/null > make-${PACKAGE_NAME}.db
           if ! grep -Fq "${PACKAGE_BUILD_TARGET}:" make-${PACKAGE_NAME}.db; then
             echo "Unable to resolve build target: $PACKAGE_BUILD_TARGET"
             find package/feeds -maxdepth 4 -path "*/${PACKAGE_NAME}/Makefile" | sort || true
