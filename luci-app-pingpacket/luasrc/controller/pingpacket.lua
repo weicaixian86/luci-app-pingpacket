@@ -22,12 +22,12 @@ function index()
 	end
 
 	local page = entry({"admin", "status", "pingpacket"}, alias("admin", "status", "pingpacket", "status"),
-	                   _("Ping Packet Loss"), 40)
+	                   "Pingpacket", 40)
 	page.dependent = true
 	page.acl_depends = { "luci-app-pingpacket" }
 
 	entry({"admin", "status", "pingpacket", "status"}, template("pingpacket/status"),
-	      _("Status"), 1).leaf = true
+	      "状态", 1).leaf = true
 	entry({"admin", "status", "pingpacket", "get_data"}, call("action_get_data"))
 	entry({"admin", "status", "pingpacket", "save_config"}, call("action_save_config"))
 end
@@ -82,15 +82,23 @@ function action_save_config()
 	local enabled = normalize_enabled(http.formvalue("enabled"))
 	local domestic = trim(http.formvalue("domestic_target"))
 	local foreign = trim(http.formvalue("foreign_target"))
+	local request_source = trim(http.formvalue("request_source"))
 
-	if enabled == "1" then
-		if domestic == "" and foreign == "" then
-			write_json({
-				success = false,
-				message = _("Please configure at least one target.")
-			})
-			return
-		end
+	local require_target = false
+	if request_source == "save" then
+		require_target = true
+	elseif request_source == "toggle" then
+		require_target = (enabled == "1")
+	else
+		require_target = (enabled == "1")
+	end
+
+	if require_target and domestic == "" and foreign == "" then
+		write_json({
+			success = false,
+			message = "请至少配置一个目标。"
+		})
+		return
 	end
 
 	uci:set("pingpacket", "config", "enabled", enabled)
@@ -102,13 +110,13 @@ function action_save_config()
 
 	local rc
 	if enabled == "1" then
-		rc = sys.call("/etc/init.d/pingpacket restart >/dev/null 2>&1")
+		rc = sys.call("/bin/sh /etc/init.d/pingpacket restart >/dev/null 2>&1")
 	else
-		rc = sys.call("/etc/init.d/pingpacket stop >/dev/null 2>&1")
+		rc = sys.call("/bin/sh /etc/init.d/pingpacket stop >/dev/null 2>&1")
 	end
 
 	write_json({
 		success = (rc == 0),
-		message = (rc == 0) and "" or _("Failed to update service state.")
+		message = (rc == 0) and "" or "服务状态更新失败。"
 	})
 end

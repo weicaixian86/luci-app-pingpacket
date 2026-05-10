@@ -31,7 +31,7 @@
 .pp-card .pp-target.inactive { color:#ccc; font-style:italic; }
 .pp-stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .pp-stat { text-align:center; padding:10px 6px; background:#f8fafc; border-radius:8px; }
-.pp-stat .pp-label { font-size:.75em; color:#999; text-transform:uppercase; letter-spacing:.5px; }
+.pp-stat .pp-label { font-size:.8em; color:#999; letter-spacing:.2px; }
 .pp-stat .pp-value { font-size:1.8em; font-weight:700; color:#333; font-variant-numeric:tabular-nums; }
 .pp-stat .pp-unit { font-size:.45em; font-weight:400; color:#888; }
 .pp-loss .pp-value { font-size:2em; }
@@ -61,9 +61,9 @@
 
 <div class="pp-container">
 	<div class="pp-header">
-		<h2><%=translate("Ping Packet Loss Monitor")%></h2>
+		<h2>Ping丢包监控</h2>
 		<div class="pp-toggle">
-			<span id="toggleLabel"><%=translate("Disabled")%></span>
+			<span id="toggleLabel">已关闭</span>
 			<label class="pp-switch">
 				<input type="checkbox" id="enableSwitch" onchange="toggleService()">
 				<span class="pp-slider"></span>
@@ -72,52 +72,52 @@
 	</div>
 
 	<div class="pp-timebar">
-		<div><%=translate("Start Time")%>: <strong id="startTime">--</strong></div>
-		<div><%=translate("Duration")%>: <strong id="duration">--</strong></div>
+		<div>开始时间: <strong id="startTime">--</strong></div>
+		<div>运行时长: <strong id="duration">--</strong></div>
 	</div>
 
 	<div class="pp-cards">
 		<div class="pp-card" id="domesticCard">
-			<h3><%=translate("Domestic")%></h3>
+			<h3>国内</h3>
 			<div class="pp-target" id="domesticTarget">--</div>
 			<div class="pp-stats">
 				<div class="pp-stat">
-					<div class="pp-label"><%=translate("Average")%></div>
+					<div class="pp-label">平均延迟</div>
 					<div class="pp-value" id="domesticAvg">--<span class="pp-unit">ms</span></div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label"><%=translate("Minimum")%></div>
+					<div class="pp-label">最低延迟</div>
 					<div class="pp-value" id="domesticMin">--<span class="pp-unit">ms</span></div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label"><%=translate("Maximum")%></div>
+					<div class="pp-label">最高延迟</div>
 					<div class="pp-value" id="domesticMax">--<span class="pp-unit">ms</span></div>
 				</div>
 				<div class="pp-stat pp-loss" id="domesticLossBox">
-					<div class="pp-label"><%=translate("Packet Loss")%></div>
+					<div class="pp-label">丢包率</div>
 					<div class="pp-value" id="domesticLoss">--<span class="pp-unit">%</span></div>
 				</div>
 			</div>
 		</div>
 
 		<div class="pp-card" id="foreignCard">
-			<h3><%=translate("Foreign")%></h3>
+			<h3>国外</h3>
 			<div class="pp-target" id="foreignTarget">--</div>
 			<div class="pp-stats">
 				<div class="pp-stat">
-					<div class="pp-label"><%=translate("Average")%></div>
+					<div class="pp-label">平均延迟</div>
 					<div class="pp-value" id="foreignAvg">--<span class="pp-unit">ms</span></div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label"><%=translate("Minimum")%></div>
+					<div class="pp-label">最低延迟</div>
 					<div class="pp-value" id="foreignMin">--<span class="pp-unit">ms</span></div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label"><%=translate("Maximum")%></div>
+					<div class="pp-label">最高延迟</div>
 					<div class="pp-value" id="foreignMax">--<span class="pp-unit">ms</span></div>
 				</div>
 				<div class="pp-stat pp-loss" id="foreignLossBox">
-					<div class="pp-label"><%=translate("Packet Loss")%></div>
+					<div class="pp-label">丢包率</div>
 					<div class="pp-value" id="foreignLoss">--<span class="pp-unit">%</span></div>
 				</div>
 			</div>
@@ -125,19 +125,19 @@
 	</div>
 
 	<div class="pp-section">
-		<h3><%=translate("Monitoring Settings")%></h3>
+		<h3>监控设置</h3>
 		<div class="pp-form-group">
-			<label for="domesticInput"><%=translate("Ping Domestic IP or Domain")%></label>
-			<input type="text" id="domesticInput" placeholder="<%=translate('e.g. 114.114.114.114 or baidu.com')%>">
-			<div class="pp-hint"><%=translate("Leave empty to disable domestic monitoring.")%></div>
+			<label for="domesticInput">Ping 国内 IP 或域名</label>
+			<input type="text" id="domesticInput" placeholder="例如：114.114.114.114 或 baidu.com">
+			<div class="pp-hint">留空则不启用国内监控。</div>
 		</div>
 		<div class="pp-form-group">
-			<label for="foreignInput"><%=translate("Ping Foreign IP or Domain")%></label>
-			<input type="text" id="foreignInput" placeholder="<%=translate('e.g. 8.8.8.8 or google.com')%>">
-			<div class="pp-hint"><%=translate("Leave empty to disable foreign monitoring.")%></div>
+			<label for="foreignInput">Ping 国外 IP 或域名</label>
+			<input type="text" id="foreignInput" placeholder="例如：8.8.8.8 或 google.com">
+			<div class="pp-hint">留空则不启用国外监控。</div>
 		</div>
 		<div class="pp-actions">
-			<button class="pp-btn pp-btn-primary" onclick="saveConfig()"><%=translate("Save & Apply")%></button>
+			<button class="pp-btn pp-btn-primary" onclick="saveConfig()">保存并应用</button>
 			<span class="pp-msg" id="saveMsg"></span>
 		</div>
 	</div>
@@ -146,11 +146,17 @@
 <script>
 (function(){
 	var apiBase = '<%=url("admin/status/pingpacket")%>';
+	var formToken = (window.L && L.env && L.env.token) ? L.env.token : '<%=token%>';
 	var dataUrl = apiBase + '/get_data';
 	var saveUrl = apiBase + '/save_config';
 	var pollTimer = null;
 	var startTimeRef = null;
 	var durationTimer = null;
+	var requestPending = false;
+	var inputDirty = {
+		domestic: false,
+		foreign: false
+	};
 
 	function $(id){ return document.getElementById(id); }
 
@@ -158,9 +164,9 @@
 		var h = Math.floor(seconds / 3600);
 		var m = Math.floor((seconds % 3600) / 60);
 		var s = Math.floor(seconds % 60);
-		return String(h).padStart(2,'0') + ':' +
-		       String(m).padStart(2,'0') + ':' +
-		       String(s).padStart(2,'0');
+		return String(h).padStart(2, '0') + ':' +
+		       String(m).padStart(2, '0') + ':' +
+		       String(s).padStart(2, '0');
 	}
 
 	function updateDuration(){
@@ -169,20 +175,54 @@
 		$('duration').textContent = formatDuration(elapsed);
 	}
 
+	function setMessage(text, type){
+		var msg = $('saveMsg');
+		msg.textContent = text || '';
+		msg.className = 'pp-msg' + (type ? ' ' + type : '');
+	}
+
+	function syncInputValue(id, value, key){
+		var input = $(id);
+		if(inputDirty[key] || document.activeElement === input){
+			return;
+		}
+
+		input.value = value || '';
+	}
+
+	function clearDirtyState(){
+		inputDirty.domestic = false;
+		inputDirty.foreign = false;
+	}
+
+	function hasAnyTarget(){
+		return $('domesticInput').value.trim() !== '' || $('foreignInput').value.trim() !== '';
+	}
+
+	function buildPayload(enabled, requestSource){
+		var dom = $('domesticInput').value.trim();
+		var frg = $('foreignInput').value.trim();
+
+		return 'token=' + encodeURIComponent(formToken) +
+			'&enabled=' + encodeURIComponent(enabled) +
+			'&request_source=' + encodeURIComponent(requestSource || '') +
+			'&domestic_target=' + encodeURIComponent(dom) +
+			'&foreign_target=' + encodeURIComponent(frg);
+	}
+
 	function updateUI(data){
 		$('enableSwitch').checked = (data.enabled === '1');
-		var lbl = (data.enabled === '1') ? '<%=translate("Enabled")%>' : '<%=translate("Disabled")%>';
-		$('toggleLabel').textContent = lbl;
+		$('toggleLabel').textContent = (data.enabled === '1') ? '已启用' : '已关闭';
 
-		$('domesticInput').value = data.domestic_target || '';
-		$('foreignInput').value = data.foreign_target || '';
+		syncInputValue('domesticInput', data.domestic_target || '', 'domestic');
+		syncInputValue('foreignInput', data.foreign_target || '', 'foreign');
 
 		var dt = $('domesticTarget');
 		if(data.domestic_target){
 			dt.textContent = data.domestic_target;
 			dt.className = 'pp-target';
 		} else {
-			dt.textContent = '<%=translate("Not configured")%>';
+			dt.textContent = '未配置';
 			dt.className = 'pp-target inactive';
 		}
 
@@ -191,18 +231,18 @@
 			ft.textContent = data.foreign_target;
 			ft.className = 'pp-target';
 		} else {
-			ft.textContent = '<%=translate("Not configured")%>';
+			ft.textContent = '未配置';
 			ft.className = 'pp-target inactive';
 		}
 
 		function setStat(prefix, stats){
 			var n = stats.count || 0;
-			$(prefix+'Avg').innerHTML = (n > 0 ? stats.avg : '--') + '<span class="pp-unit">ms</span>';
-			$(prefix+'Min').innerHTML = (n > 0 ? stats.min : '--') + '<span class="pp-unit">ms</span>';
-			$(prefix+'Max').innerHTML = (n > 0 ? stats.max : '--') + '<span class="pp-unit">ms</span>';
-			$(prefix+'Loss').innerHTML = (n > 0 ? stats.loss_rate : '--') + '<span class="pp-unit">%</span>';
+			$(prefix + 'Avg').innerHTML = (n > 0 ? stats.avg : '--') + '<span class="pp-unit">ms</span>';
+			$(prefix + 'Min').innerHTML = (n > 0 ? stats.min : '--') + '<span class="pp-unit">ms</span>';
+			$(prefix + 'Max').innerHTML = (n > 0 ? stats.max : '--') + '<span class="pp-unit">ms</span>';
+			$(prefix + 'Loss').innerHTML = (n > 0 ? stats.loss_rate : '--') + '<span class="pp-unit">%</span>';
 
-			var lossBox = $(prefix+'LossBox');
+			var lossBox = $(prefix + 'LossBox');
 			lossBox.className = 'pp-stat pp-loss';
 			if(n > 0){
 				var lr = parseFloat(stats.loss_rate) || 0;
@@ -217,7 +257,7 @@
 
 		if(data.start_time){
 			$('startTime').textContent = data.start_time;
-			startTimeRef = new Date(data.start_time.replace(/-/g,'/'));
+			startTimeRef = new Date(data.start_time.replace(/-/g, '/'));
 			updateDuration();
 			if(!durationTimer){
 				durationTimer = setInterval(updateDuration, 1000);
@@ -234,70 +274,102 @@
 	}
 
 	function fetchData(){
+		if(requestPending){
+			return;
+		}
+
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', dataUrl, true);
 		xhr.onload = function(){
 			if(xhr.status === 200){
-				try { updateUI(JSON.parse(xhr.responseText)); } catch(e){}
+				try {
+					updateUI(JSON.parse(xhr.responseText));
+				} catch(e) {}
 			}
 		};
 		xhr.send();
 	}
 
-	window.toggleService = function(){
-		var enableSwitch = $('enableSwitch');
-		var enabled = enableSwitch.checked ? '1' : '0';
-		var dom = $('domesticInput').value.trim();
-		var frg = $('foreignInput').value.trim();
+	function submitConfig(requestSource, onSuccess, onFailure){
+		var enabled = $('enableSwitch').checked ? '1' : '0';
 		var xhr = new XMLHttpRequest();
+
+		requestPending = true;
 		xhr.open('POST', saveUrl, true);
 		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 		xhr.onload = function(){
+			var response = null;
+
+			requestPending = false;
 			if(xhr.status === 200){
 				try {
-					var r = JSON.parse(xhr.responseText);
-					if(!r.success){ alert(r.message || 'Error'); enableSwitch.checked = !enableSwitch.checked; }
-				} catch(e){}
-			} else {
-				enableSwitch.checked = !enableSwitch.checked;
-				alert('<%=translate("Save failed.")%>');
+					response = JSON.parse(xhr.responseText);
+				} catch(e) {}
 			}
+
+			if(response && response.success){
+				clearDirtyState();
+				if(onSuccess) onSuccess();
+			} else {
+				if(onFailure) onFailure(response && response.message ? response.message : '');
+			}
+
 			fetchData();
 		};
-		xhr.send('enabled=' + enabled + '&domestic_target=' + encodeURIComponent(dom) + '&foreign_target=' + encodeURIComponent(frg));
+		xhr.onerror = function(){
+			requestPending = false;
+			if(onFailure) onFailure('');
+			fetchData();
+		};
+		xhr.send(buildPayload(enabled, requestSource));
+	}
+
+	window.toggleService = function(){
+		var enableSwitch = $('enableSwitch');
+		var previousChecked = !enableSwitch.checked;
+
+		if(enableSwitch.checked && !hasAnyTarget()){
+			enableSwitch.checked = previousChecked;
+			alert('请至少配置一个目标。');
+			return;
+		}
+
+		submitConfig(
+			'toggle',
+			function(){
+				setMessage('', '');
+			},
+			function(message){
+				enableSwitch.checked = previousChecked;
+				alert(message || '保存失败，请刷新页面后重试。');
+			}
+		);
 	};
 
 	window.saveConfig = function(){
-		var xhr = new XMLHttpRequest();
-		xhr.open('POST', saveUrl, true);
-		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-		xhr.onload = function(){
-			var msg = $('saveMsg');
-			if(xhr.status === 200){
-				try {
-					var r = JSON.parse(xhr.responseText);
-					if(r.success){
-						msg.textContent = '<%=translate("Saved successfully.")%>';
-						msg.className = 'pp-msg success';
-					} else {
-						msg.textContent = r.message || '<%=translate("Save failed.")%>';
-						msg.className = 'pp-msg error';
-					}
-				} catch(e){
-					msg.textContent = '<%=translate("Save failed.")%>';
-					msg.className = 'pp-msg error';
-				}
-			} else {
-				msg.textContent = '<%=translate("Save failed.")%>';
-				msg.className = 'pp-msg error';
+		if(!hasAnyTarget()){
+			setMessage('请至少配置一个目标。', 'error');
+			return;
+		}
+
+		submitConfig(
+			'save',
+			function(){
+				setMessage('保存成功。', 'success');
+			},
+			function(message){
+				setMessage(message || '保存失败，请刷新页面后重试。', 'error');
 			}
-			fetchData();
-		};
-		var enabled = $('enableSwitch').checked ? '1' : '0';
-		var dom = $('domesticInput').value.trim();
-		var frg = $('foreignInput').value.trim();
-		xhr.send('enabled=' + enabled + '&domestic_target=' + encodeURIComponent(dom) + '&foreign_target=' + encodeURIComponent(frg));
+		);
 	};
+
+	$('domesticInput').addEventListener('input', function(){
+		inputDirty.domestic = true;
+	});
+
+	$('foreignInput').addEventListener('input', function(){
+		inputDirty.foreign = true;
+	});
 
 	pollTimer = setInterval(fetchData, 2000);
 	fetchData();

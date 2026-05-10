@@ -11,13 +11,13 @@ define Package/$(PKG_NAME)
   SECTION:=luci
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
-  TITLE:=Ping Packet Loss Monitor
+  TITLE:=Pingpacket
   PKGARCH:=all
   DEPENDS:=+luci-base +luci-lua-runtime +luci-compat
 endef
 
 define Package/$(PKG_NAME)/description
- LuCI web interface for monitoring ping latency and packet loss.
+ LuCI web interface for Pingpacket monitoring.
 endef
 
 define Package/$(PKG_NAME)/conffiles
