@@ -136,7 +136,10 @@ jobs:
           cat feeds.conf
           ./scripts/feeds update packages routing telephony luci
           ./scripts/feeds update "$LOCAL_FEED_NAME"
-          ./scripts/feeds install -p luci luci-base
+          ./scripts/feeds install -a -p packages
+          ./scripts/feeds install -a -p routing
+          ./scripts/feeds install -a -p telephony
+          ./scripts/feeds install -a -p luci
           ./scripts/feeds install -f -p "$LOCAL_FEED_NAME" "$PACKAGE_NAME"
           test -f "$SDK_PACKAGE_DIR/Makefile"
           grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$SDK_PACKAGE_DIR/Makefile"
