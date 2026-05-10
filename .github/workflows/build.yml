@@ -90,8 +90,16 @@ jobs:
             find "$GITHUB_WORKSPACE" -maxdepth 4 -type f -name Makefile | sort
             exit 1
           fi
+          PACKAGE_BUILD_TARGET="package/feeds/pingpacket/${PACKAGE_NAME}/compile"
+          if [ ! -f "$GITHUB_WORKSPACE/sdk/package/feeds/pingpacket/${PACKAGE_NAME}/Makefile" ]; then
+            echo "Installed feed package not found: sdk/package/feeds/pingpacket/${PACKAGE_NAME}"
+            find "$GITHUB_WORKSPACE/sdk/package/feeds" -maxdepth 4 -type f -name Makefile | sort || true
+            exit 1
+          fi
           echo "APP_SOURCE_DIR=$APP_SOURCE_DIR" >> "$GITHUB_ENV"
+          echo "PACKAGE_BUILD_TARGET=$PACKAGE_BUILD_TARGET" >> "$GITHUB_ENV"
           echo "Resolved APP_SOURCE_DIR=$APP_SOURCE_DIR"
+          echo "Resolved PACKAGE_BUILD_TARGET=$PACKAGE_BUILD_TARGET"
 
       - name: Apply package version from release tag
         shell: bash
@@ -112,7 +120,7 @@ jobs:
           set -o pipefail
           cd sdk
           make defconfig
-          make package/${PACKAGE_NAME}/compile V=sc -j"$(nproc)" 2>&1 | tee build-${PACKAGE_NAME}.log
+          make "${PACKAGE_BUILD_TARGET}" V=sc -j"$(nproc)" 2>&1 | tee build-${PACKAGE_NAME}.log
 
       - name: Dump package build logs on failure
         if: failure()
