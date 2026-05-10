@@ -1,4 +1,4 @@
 config pingpacket 'config'
 	option enabled '0'
-	option domestic_target ''
-	option foreign_target ''
+	option domestic_target 'www.baidu.com'
+	option foreign_target 'www.google.com'

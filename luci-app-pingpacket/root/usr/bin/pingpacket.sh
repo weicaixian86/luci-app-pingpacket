@@ -19,19 +19,23 @@ cleanup() {
 	rm -rf "$RUN_DIR"
 	exit 0
 }
+
 trap cleanup INT TERM
 
 mkdir -p "$RUN_DIR"
 date '+%Y-%m-%d %H:%M:%S' > "$START_TIME_FILE"
 
 do_ping() {
-	local target="$1" name="$2"
+	local target="$1"
+	local name="$2"
 	local times_file="$RUN_DIR/${name}_times"
+	local result
+	local rtt
 
-	result=$(ping -c 1 -W 2 "$target" 2>/dev/null)
+	result="$(ping -c 1 -W 2 "$target" 2>/dev/null)"
 	if echo "$result" | grep -q "bytes from"; then
-		t=$(echo "$result" | sed -n 's/.*time=\([0-9.]*\).*/\1/p')
-		echo "$t" >> "$times_file"
+		rtt="$(echo "$result" | sed -n 's/.*time=\([0-9.]*\).*/\1/p')"
+		echo "$rtt" >> "$times_file"
 	else
 		echo "L" >> "$times_file"
 	fi
@@ -42,56 +46,67 @@ do_ping() {
 
 calc_stats() {
 	local file="$1"
+
 	if [ ! -f "$file" ]; then
-		printf '{"avg":"0.0","min":"0.0","max":"0.0","loss_rate":"0.0","count":0}'
+		printf '{"avg":"0.0","min":"0.0","max":"0.0","loss_rate":"0.0","count":0,"samples":0}'
 		return
 	fi
 
 	awk '
 	{
-		if ($1 == "L") { loss++ }
-		else {
-			sum += $1; count++
-			if (min == "" || $1 < min) min = $1
-			if (max == "" || $1 > max) max = $1
+		total++
+		if ($1 == "L") {
+			loss++
+			next
 		}
+
+		sum += $1
+		count++
+		if (min == "" || ($1 + 0) < (min + 0)) min = $1
+		if (max == "" || ($1 + 0) > (max + 0)) max = $1
 	}
 	END {
-		total = count + loss
 		avg = count > 0 ? sum / count : 0
 		lr = total > 0 ? loss * 100.0 / total : 0
-		printf "{\"avg\":\"%.1f\",\"min\":\"%.1f\",\"max\":\"%.1f\",\"loss_rate\":\"%.1f\",\"count\":%d}\n",
-		       avg, (min ? min : 0), (max ? max : 0), lr, count
+		if (min == "") min = 0
+		if (max == "") max = 0
+
+		printf "{\"avg\":\"%.1f\",\"min\":\"%.1f\",\"max\":\"%.1f\",\"loss_rate\":\"%.1f\",\"count\":%d,\"samples\":%d}\n",
+			avg, min, max, lr, count, total
 	}' "$file"
 }
 
 while true; do
-	START=$(cat "$START_TIME_FILE" 2>/dev/null || echo "")
-	dom=""
-	frg=""
+	START_TIME="$(cat "$START_TIME_FILE" 2>/dev/null || echo "")"
+	UPDATED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
+	DOMESTIC_TARGET=""
+	FOREIGN_TARGET=""
 
 	if [ -f "$RUN_DIR/config" ]; then
-		dom=$(sed -n '1p' "$RUN_DIR/config")
-		frg=$(sed -n '2p' "$RUN_DIR/config")
+		DOMESTIC_TARGET="$(sed -n '1p' "$RUN_DIR/config")"
+		FOREIGN_TARGET="$(sed -n '2p' "$RUN_DIR/config")"
 	fi
 
 	child_pids=""
-	if [ -n "$dom" ]; then
-		do_ping "$dom" "domestic" &
+	if [ -n "$DOMESTIC_TARGET" ]; then
+		do_ping "$DOMESTIC_TARGET" "domestic" &
 		child_pids="$!"
 	fi
-	if [ -n "$frg" ]; then
-		do_ping "$frg" "foreign" &
+
+	if [ -n "$FOREIGN_TARGET" ]; then
+		do_ping "$FOREIGN_TARGET" "foreign" &
 		child_pids="${child_pids:+$child_pids }$!"
 	fi
+
 	[ -n "$child_pids" ] && wait $child_pids 2>/dev/null
 	child_pids=""
 
-	dom_stats=$(calc_stats "$RUN_DIR/domestic_times")
-	frg_stats=$(calc_stats "$RUN_DIR/foreign_times")
+	DOMESTIC_STATS="$(calc_stats "$RUN_DIR/domestic_times")"
+	FOREIGN_STATS="$(calc_stats "$RUN_DIR/foreign_times")"
 
-	printf '{"start_time":"%s","domestic":%s,"foreign":%s}\n' \
-		"$START" "$dom_stats" "$frg_stats" > "$STATUS_TMP" && mv -f "$STATUS_TMP" "$STATUS_FILE"
+	printf '{"start_time":"%s","updated_at":"%s","domestic":%s,"foreign":%s}\n' \
+		"$START_TIME" "$UPDATED_AT" "$DOMESTIC_STATS" "$FOREIGN_STATS" > "$STATUS_TMP" && \
+		mv -f "$STATUS_TMP" "$STATUS_FILE"
 
 	sleep 1
 done

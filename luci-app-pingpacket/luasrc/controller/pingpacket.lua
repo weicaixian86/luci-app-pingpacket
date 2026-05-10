@@ -16,20 +16,42 @@ local function write_json(payload)
 	http.write(jsonc.stringify(payload))
 end
 
+local function read_start_time()
+	local start_time_file = io.open("/var/run/pingpacket/start_time", "r")
+	if not start_time_file then
+		return ""
+	end
+
+	local value = trim(start_time_file:read("*a"))
+	start_time_file:close()
+	return value
+end
+
+local function should_require_target(request_source, enabled)
+	if request_source == "save" then
+		return true
+	end
+
+	return enabled == "1"
+end
+
 function index()
 	if not nixio.fs.access("/etc/config/pingpacket") then
 		return
 	end
 
-	local page = entry({"admin", "status", "pingpacket"}, alias("admin", "status", "pingpacket", "status"),
-	                   "Pingpacket", 40)
+	local page = entry(
+		{"admin", "status", "pingpacket"},
+		alias("admin", "status", "pingpacket", "status"),
+		"Ping丢包监控",
+		40
+	)
 	page.dependent = true
 	page.acl_depends = { "luci-app-pingpacket" }
 
-	entry({"admin", "status", "pingpacket", "status"}, template("pingpacket/status"),
-	      "状态", 1).leaf = true
-	entry({"admin", "status", "pingpacket", "get_data"}, call("action_get_data"))
-	entry({"admin", "status", "pingpacket", "save_config"}, call("action_save_config"))
+	entry({"admin", "status", "pingpacket", "status"}, template("pingpacket/status"), "状态", 1).leaf = true
+	entry({"admin", "status", "pingpacket", "get_data"}, call("action_get_data")).leaf = true
+	entry({"admin", "status", "pingpacket", "save_config"}, call("action_save_config")).leaf = true
 end
 
 function action_get_data()
@@ -45,22 +67,39 @@ function action_get_data()
 		enabled = enabled,
 		domestic_target = domestic_target,
 		foreign_target = foreign_target,
-		domestic = { avg = "0.0", min = "0.0", max = "0.0", loss_rate = "0.0", count = 0 },
-		foreign = { avg = "0.0", min = "0.0", max = "0.0", loss_rate = "0.0", count = 0 },
-		start_time = "",
-		service_running = false
+		start_time = read_start_time(),
+		updated_at = "",
+		service_running = (sys.call("[ -s /var/run/pingpacket/start_time ]") == 0),
+		domestic = {
+			avg = "0.0",
+			min = "0.0",
+			max = "0.0",
+			loss_rate = "0.0",
+			count = 0,
+			samples = 0
+		},
+		foreign = {
+			avg = "0.0",
+			min = "0.0",
+			max = "0.0",
+			loss_rate = "0.0",
+			count = 0,
+			samples = 0
+		}
 	}
 
-	result.service_running = (sys.call("[ -s /var/run/pingpacket/start_time ]") == 0)
+	local status_file = io.open("/tmp/pingpacket_status.json", "r")
+	if status_file then
+		local content = status_file:read("*a")
+		status_file:close()
 
-	local f = io.open("/tmp/pingpacket_status.json", "r")
-	if f then
-		local content = f:read("*a")
-		f:close()
 		local ok, data = pcall(jsonc.parse, content)
 		if ok and data then
 			if data.start_time then
 				result.start_time = data.start_time
+			end
+			if data.updated_at then
+				result.updated_at = data.updated_at
 			end
 			if data.domestic then
 				result.domestic = data.domestic
@@ -84,16 +123,7 @@ function action_save_config()
 	local foreign = trim(http.formvalue("foreign_target"))
 	local request_source = trim(http.formvalue("request_source"))
 
-	local require_target = false
-	if request_source == "save" then
-		require_target = true
-	elseif request_source == "toggle" then
-		require_target = (enabled == "1")
-	else
-		require_target = (enabled == "1")
-	end
-
-	if require_target and domestic == "" and foreign == "" then
+	if should_require_target(request_source, enabled) and domestic == "" and foreign == "" then
 		write_json({
 			success = false,
 			message = "请至少配置一个目标。"

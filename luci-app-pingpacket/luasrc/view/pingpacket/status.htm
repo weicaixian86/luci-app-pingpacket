@@ -1,334 +1,943 @@
 <%+header%>
 
 <style>
-.pp-container { max-width:960px; margin:0 auto; padding:0 10px; }
-.pp-header { display:flex; align-items:center; justify-content:space-between;
-    background:linear-gradient(135deg,#1a73e8,#0d47a1); color:#fff;
-    border-radius:10px; padding:16px 24px; margin:16px 0; box-shadow:0 2px 8px rgba(0,0,0,.12); }
-.pp-header h2 { margin:0; font-size:1.3em; font-weight:600; }
-.pp-toggle { display:flex; align-items:center; gap:10px; }
-.pp-toggle span { font-size:.95em; }
-.pp-switch { position:relative; display:inline-block; width:52px; height:28px; }
-.pp-switch input { opacity:0; width:0; height:0; }
-.pp-slider { position:absolute; cursor:pointer; inset:0; background-color:#ccc;
-    border-radius:28px; transition:.3s; }
-.pp-slider:before { position:absolute; content:""; height:22px; width:22px;
-    left:3px; bottom:3px; background-color:#fff; border-radius:50%; transition:.3s; }
-.pp-switch input:checked + .pp-slider { background-color:#4caf50; }
-.pp-switch input:checked + .pp-slider:before { transform:translateX(24px); }
+.pp-page {
+	max-width: 1080px;
+	margin: 0 auto;
+	padding: 8px 10px 20px;
+}
 
-.pp-timebar { display:flex; gap:32px; padding:12px 24px; background:#f5f7fa;
-    border-radius:8px; margin-bottom:12px; font-size:.92em; color:#555; }
-.pp-timebar strong { color:#333; }
+.pp-hero {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20px;
+	padding: 24px 26px;
+	margin: 12px 0 18px;
+	border-radius: 18px;
+	color: #fff;
+	background:
+		radial-gradient(circle at top right, rgba(255, 255, 255, 0.22), transparent 34%),
+		linear-gradient(135deg, #0f6ad8, #0d47a1 62%, #123469);
+	box-shadow: 0 18px 38px rgba(13, 71, 161, 0.18);
+}
 
-.pp-cards { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
-@media (max-width:680px) { .pp-cards { grid-template-columns:1fr; } }
-.pp-card { background:#fff; border-radius:10px; padding:20px; box-shadow:0 1px 6px rgba(0,0,0,.08);
-    border:1px solid #e8ecf1; }
-.pp-card h3 { margin:0 0 4px 0; font-size:1.1em; color:#1a73e8; }
-.pp-card .pp-target { font-size:.85em; color:#888; margin-bottom:14px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.pp-card .pp-target.inactive { color:#ccc; font-style:italic; }
-.pp-stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.pp-stat { text-align:center; padding:10px 6px; background:#f8fafc; border-radius:8px; }
-.pp-stat .pp-label { font-size:.8em; color:#999; letter-spacing:.2px; }
-.pp-stat .pp-value { font-size:1.8em; font-weight:700; color:#333; font-variant-numeric:tabular-nums; }
-.pp-stat .pp-unit { font-size:.45em; font-weight:400; color:#888; }
-.pp-loss .pp-value { font-size:2em; }
-.pp-loss-good .pp-value { color:#2e7d32; }
-.pp-loss-warn .pp-value { color:#e65100; }
-.pp-loss-bad .pp-value { color:#c62828; }
+.pp-title-wrap {
+	max-width: 680px;
+}
 
-.pp-section { background:#fff; border-radius:10px; padding:20px 24px;
-    box-shadow:0 1px 6px rgba(0,0,0,.08); border:1px solid #e8ecf1; margin-bottom:20px; }
-.pp-section h3 { margin:0 0 16px 0; font-size:1.05em; color:#333; border-bottom:1px solid #eee;
-    padding-bottom:10px; }
-.pp-form-group { margin-bottom:14px; }
-.pp-form-group label { display:block; font-size:.9em; color:#555; margin-bottom:6px; font-weight:500; }
-.pp-form-group input[type=text] { width:100%; padding:8px 12px; border:1px solid #ddd;
-    border-radius:6px; font-size:.92em; box-sizing:border-box; transition:border-color .2s; }
-.pp-form-group input[type=text]:focus { outline:none; border-color:#1a73e8; box-shadow:0 0 0 2px rgba(26,115,232,.15); }
-.pp-form-group .pp-hint { font-size:.78em; color:#aaa; margin-top:4px; }
-.pp-actions { display:flex; gap:10px; align-items:center; }
-.pp-btn { padding:9px 24px; border:none; border-radius:6px; font-size:.92em; cursor:pointer;
-    font-weight:500; transition:all .2s; }
-.pp-btn-primary { background:#1a73e8; color:#fff; }
-.pp-btn-primary:hover { background:#1557b0; }
-.pp-msg { margin-left:12px; font-size:.88em; }
-.pp-msg.success { color:#2e7d32; }
-.pp-msg.error { color:#c62828; }
+.pp-kicker {
+	margin: 0 0 8px;
+	font-size: 12px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	opacity: 0.78;
+}
+
+.pp-title {
+	margin: 0;
+	font-size: 30px;
+	line-height: 1.15;
+	font-weight: 700;
+}
+
+.pp-subtitle {
+	margin: 10px 0 0;
+	font-size: 14px;
+	line-height: 1.65;
+	color: rgba(255, 255, 255, 0.86);
+}
+
+.pp-toggle-panel {
+	min-width: 240px;
+	padding: 16px 18px;
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.12);
+	backdrop-filter: blur(6px);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.pp-toggle-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+}
+
+.pp-toggle-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.pp-badge {
+	display: inline-flex;
+	align-items: center;
+	width: fit-content;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	background: rgba(255, 255, 255, 0.18);
+}
+
+.pp-badge.running {
+	background: rgba(46, 204, 113, 0.18);
+	color: #dfffe9;
+}
+
+.pp-badge.pending {
+	background: rgba(255, 193, 7, 0.18);
+	color: #fff3cd;
+}
+
+.pp-badge.stopped {
+	background: rgba(255, 255, 255, 0.16);
+	color: rgba(255, 255, 255, 0.92);
+}
+
+.pp-toggle-label {
+	font-size: 14px;
+	color: rgba(255, 255, 255, 0.92);
+}
+
+.pp-switch {
+	position: relative;
+	display: inline-block;
+	width: 56px;
+	height: 30px;
+	flex: 0 0 auto;
+}
+
+.pp-switch input {
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+.pp-slider {
+	position: absolute;
+	inset: 0;
+	cursor: pointer;
+	background: rgba(255, 255, 255, 0.28);
+	border-radius: 999px;
+	transition: 0.25s ease;
+}
+
+.pp-slider:before {
+	position: absolute;
+	content: "";
+	height: 22px;
+	width: 22px;
+	left: 4px;
+	bottom: 4px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+	transition: 0.25s ease;
+}
+
+.pp-switch input:checked + .pp-slider {
+	background: rgba(72, 214, 128, 0.88);
+}
+
+.pp-switch input:checked + .pp-slider:before {
+	transform: translateX(26px);
+}
+
+.pp-switch input:disabled + .pp-slider {
+	cursor: not-allowed;
+	opacity: 0.65;
+}
+
+.pp-meta-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 14px;
+	margin-bottom: 18px;
+}
+
+.pp-meta-card,
+.pp-panel,
+.pp-card {
+	background: linear-gradient(180deg, #ffffff, #fbfdff);
+	border: 1px solid #dde8f6;
+	box-shadow: 0 10px 28px rgba(27, 73, 124, 0.08);
+}
+
+.pp-meta-card {
+	padding: 14px 16px;
+	border-radius: 14px;
+}
+
+.pp-meta-label {
+	display: block;
+	margin-bottom: 6px;
+	font-size: 12px;
+	color: #6d7d92;
+}
+
+.pp-meta-value {
+	font-size: 15px;
+	font-weight: 600;
+	color: #24364d;
+	font-variant-numeric: tabular-nums;
+	font-family: "JetBrains Mono", "Consolas", "Menlo", monospace;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.pp-cards {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 18px;
+	margin-bottom: 18px;
+}
+
+.pp-card {
+	position: relative;
+	padding: 20px 20px 18px;
+	border-radius: 18px;
+	overflow: hidden;
+}
+
+.pp-card:before {
+	content: "";
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 5px;
+	border-radius: 18px 0 0 18px;
+	background: linear-gradient(180deg, #2b7de9, #1450ba);
+}
+
+.pp-card.foreign:before {
+	background: linear-gradient(180deg, #f59e0b, #ea580c);
+}
+
+.pp-card-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.pp-card-title {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 700;
+	color: #1b3350;
+}
+
+.pp-target {
+	margin-top: 6px;
+	font-size: 13px;
+	color: #64748b;
+	word-break: break-all;
+}
+
+.pp-target.inactive {
+	color: #9aa7b7;
+	font-style: italic;
+}
+
+.pp-samples {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-width: 96px;
+	padding: 5px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	color: #51657d;
+	background: #eef5fd;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+	font-family: "JetBrains Mono", "Consolas", "Menlo", monospace;
+}
+
+.pp-samples span {
+	display: inline-block;
+	min-width: 3ch;
+	text-align: right;
+}
+
+.pp-stats {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.pp-stat {
+	padding: 13px 14px;
+	border-radius: 14px;
+	background: #f5f9ff;
+	border: 1px solid #e5eef8;
+}
+
+.pp-stat.loss {
+	background: #f8fbff;
+}
+
+.pp-stat-label {
+	display: block;
+	margin-bottom: 8px;
+	font-size: 12px;
+	color: #70839b;
+}
+
+.pp-stat-number {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	color: #1f3147;
+}
+
+.pp-stat-number span:first-child {
+	font-size: 22px;
+	line-height: 1;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+	font-family: "JetBrains Mono", "Consolas", "Menlo", monospace;
+}
+
+.pp-stat-number .pp-unit {
+	font-size: 12px;
+	color: #7b8fa6;
+}
+
+.pp-stat.loss.good .pp-stat-number span:first-child {
+	color: #1f8f52;
+}
+
+.pp-stat.loss.warn .pp-stat-number span:first-child {
+	color: #d97706;
+}
+
+.pp-stat.loss.bad .pp-stat-number span:first-child {
+	color: #d13d38;
+}
+
+.pp-panel {
+	padding: 22px;
+	border-radius: 18px;
+}
+
+.pp-panel-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	margin-bottom: 18px;
+}
+
+.pp-panel-title {
+	margin: 0;
+	font-size: 19px;
+	color: #1b3350;
+}
+
+.pp-panel-note {
+	font-size: 13px;
+	color: #70839b;
+}
+
+.pp-form-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.pp-field label {
+	display: block;
+	margin-bottom: 8px;
+	font-size: 14px;
+	font-weight: 600;
+	color: #344a63;
+}
+
+.pp-input-wrap {
+	position: relative;
+}
+
+.pp-input {
+	width: 100%;
+	height: 44px;
+	padding: 0 14px;
+	border: 1px solid #cedbeb;
+	border-radius: 12px;
+	background: #fcfdff;
+	box-sizing: border-box;
+	font-size: 14px;
+	color: #24364d;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.pp-input:focus {
+	outline: none;
+	border-color: #1d71e8;
+	box-shadow: 0 0 0 4px rgba(29, 113, 232, 0.12);
+	background: #fff;
+}
+
+.pp-input:disabled {
+	background: #f4f7fb;
+	cursor: not-allowed;
+}
+
+.pp-hint {
+	margin-top: 7px;
+	font-size: 12px;
+	line-height: 1.55;
+	color: #7f90a6;
+}
+
+.pp-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.pp-action-copy {
+	font-size: 13px;
+	color: #6f8198;
+}
+
+.pp-action-right {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.pp-button {
+	min-width: 142px;
+	height: 42px;
+	padding: 0 18px;
+	border: none;
+	border-radius: 12px;
+	font-size: 14px;
+	font-weight: 600;
+	color: #fff;
+	background: linear-gradient(135deg, #1d71e8, #1256b4);
+	cursor: pointer;
+	box-shadow: 0 10px 24px rgba(18, 86, 180, 0.18);
+	transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+
+.pp-button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 12px 28px rgba(18, 86, 180, 0.22);
+}
+
+.pp-button:disabled {
+	cursor: not-allowed;
+	opacity: 0.7;
+	transform: none;
+	box-shadow: none;
+}
+
+.pp-message {
+	min-height: 20px;
+	font-size: 13px;
+}
+
+.pp-message.success {
+	color: #1f8f52;
+}
+
+.pp-message.error {
+	color: #d13d38;
+}
+
+@media (max-width: 860px) {
+	.pp-hero,
+	.pp-panel-head,
+	.pp-actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.pp-toggle-panel {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.pp-toggle-top {
+		align-items: center;
+	}
+
+	.pp-action-right {
+		justify-content: flex-start;
+	}
+
+	.pp-samples {
+		min-width: 88px;
+	}
+}
+
+@media (max-width: 760px) {
+	.pp-meta-grid,
+	.pp-cards,
+	.pp-form-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.pp-page {
+		padding-left: 4px;
+		padding-right: 4px;
+	}
+
+	.pp-hero,
+	.pp-panel,
+	.pp-card {
+		padding-left: 18px;
+		padding-right: 18px;
+	}
+}
 </style>
 
-<div class="pp-container">
-	<div class="pp-header">
-		<h2>Ping丢包监控</h2>
-		<div class="pp-toggle">
-			<span id="toggleLabel">已关闭</span>
-			<label class="pp-switch">
-				<input type="checkbox" id="enableSwitch" onchange="toggleService()">
-				<span class="pp-slider"></span>
-			</label>
+<div class="pp-page">
+	<div class="pp-hero">
+		<div class="pp-title-wrap">
+			<div class="pp-kicker">OpenWrt Status</div>
+			<h2 class="pp-title">Ping丢包监控</h2>
+			<p class="pp-subtitle">实时查看国内与国外目标的平均延迟、最低延迟、最高延迟和丢包率，保存配置后会自动按当前设置重启监控服务。</p>
+		</div>
+
+		<div class="pp-toggle-panel">
+			<div class="pp-toggle-top">
+				<div class="pp-toggle-copy">
+					<span class="pp-badge stopped" id="serviceBadge">已关闭</span>
+					<span class="pp-toggle-label" id="toggleLabel">监控未启用</span>
+				</div>
+
+				<label class="pp-switch">
+					<input type="checkbox" id="enableSwitch" onchange="toggleService()">
+					<span class="pp-slider"></span>
+				</label>
+			</div>
 		</div>
 	</div>
 
-	<div class="pp-timebar">
-		<div>开始时间: <strong id="startTime">--</strong></div>
-		<div>运行时长: <strong id="duration">--</strong></div>
+	<div class="pp-meta-grid">
+		<div class="pp-meta-card">
+			<span class="pp-meta-label">开始时间</span>
+			<div class="pp-meta-value" id="startTime">--</div>
+		</div>
+		<div class="pp-meta-card">
+			<span class="pp-meta-label">运行时长</span>
+			<div class="pp-meta-value" id="duration">--</div>
+		</div>
+		<div class="pp-meta-card">
+			<span class="pp-meta-label">最近更新</span>
+			<div class="pp-meta-value" id="updatedAt">--</div>
+		</div>
 	</div>
 
 	<div class="pp-cards">
-		<div class="pp-card" id="domesticCard">
-			<h3>国内</h3>
-			<div class="pp-target" id="domesticTarget">--</div>
+		<div class="pp-card domestic">
+			<div class="pp-card-head">
+				<div>
+					<h3 class="pp-card-title">国内目标</h3>
+					<div class="pp-target inactive" id="domesticTarget">未配置</div>
+				</div>
+				<div class="pp-samples">样本数 <span id="domesticSamples">0</span></div>
+			</div>
+
 			<div class="pp-stats">
 				<div class="pp-stat">
-					<div class="pp-label">平均延迟</div>
-					<div class="pp-value" id="domesticAvg">--<span class="pp-unit">ms</span></div>
+					<span class="pp-stat-label">平均延迟</span>
+					<div class="pp-stat-number">
+						<span id="domesticAvg">--</span>
+						<span class="pp-unit">ms</span>
+					</div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label">最低延迟</div>
-					<div class="pp-value" id="domesticMin">--<span class="pp-unit">ms</span></div>
+					<span class="pp-stat-label">最低延迟</span>
+					<div class="pp-stat-number">
+						<span id="domesticMin">--</span>
+						<span class="pp-unit">ms</span>
+					</div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label">最高延迟</div>
-					<div class="pp-value" id="domesticMax">--<span class="pp-unit">ms</span></div>
+					<span class="pp-stat-label">最高延迟</span>
+					<div class="pp-stat-number">
+						<span id="domesticMax">--</span>
+						<span class="pp-unit">ms</span>
+					</div>
 				</div>
-				<div class="pp-stat pp-loss" id="domesticLossBox">
-					<div class="pp-label">丢包率</div>
-					<div class="pp-value" id="domesticLoss">--<span class="pp-unit">%</span></div>
+				<div class="pp-stat loss" id="domesticLossCard">
+					<span class="pp-stat-label">丢包率</span>
+					<div class="pp-stat-number">
+						<span id="domesticLoss">--</span>
+						<span class="pp-unit">%</span>
+					</div>
 				</div>
 			</div>
 		</div>
 
-		<div class="pp-card" id="foreignCard">
-			<h3>国外</h3>
-			<div class="pp-target" id="foreignTarget">--</div>
+		<div class="pp-card foreign">
+			<div class="pp-card-head">
+				<div>
+					<h3 class="pp-card-title">国外目标</h3>
+					<div class="pp-target inactive" id="foreignTarget">未配置</div>
+				</div>
+				<div class="pp-samples">样本数 <span id="foreignSamples">0</span></div>
+			</div>
+
 			<div class="pp-stats">
 				<div class="pp-stat">
-					<div class="pp-label">平均延迟</div>
-					<div class="pp-value" id="foreignAvg">--<span class="pp-unit">ms</span></div>
+					<span class="pp-stat-label">平均延迟</span>
+					<div class="pp-stat-number">
+						<span id="foreignAvg">--</span>
+						<span class="pp-unit">ms</span>
+					</div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label">最低延迟</div>
-					<div class="pp-value" id="foreignMin">--<span class="pp-unit">ms</span></div>
+					<span class="pp-stat-label">最低延迟</span>
+					<div class="pp-stat-number">
+						<span id="foreignMin">--</span>
+						<span class="pp-unit">ms</span>
+					</div>
 				</div>
 				<div class="pp-stat">
-					<div class="pp-label">最高延迟</div>
-					<div class="pp-value" id="foreignMax">--<span class="pp-unit">ms</span></div>
+					<span class="pp-stat-label">最高延迟</span>
+					<div class="pp-stat-number">
+						<span id="foreignMax">--</span>
+						<span class="pp-unit">ms</span>
+					</div>
 				</div>
-				<div class="pp-stat pp-loss" id="foreignLossBox">
-					<div class="pp-label">丢包率</div>
-					<div class="pp-value" id="foreignLoss">--<span class="pp-unit">%</span></div>
+				<div class="pp-stat loss" id="foreignLossCard">
+					<span class="pp-stat-label">丢包率</span>
+					<div class="pp-stat-number">
+						<span id="foreignLoss">--</span>
+						<span class="pp-unit">%</span>
+					</div>
 				</div>
 			</div>
 		</div>
 	</div>
 
-	<div class="pp-section">
-		<h3>监控设置</h3>
-		<div class="pp-form-group">
-			<label for="domesticInput">Ping 国内 IP 或域名</label>
-			<input type="text" id="domesticInput" placeholder="例如：114.114.114.114 或 baidu.com">
-			<div class="pp-hint">留空则不启用国内监控。</div>
+	<div class="pp-panel">
+		<div class="pp-panel-head">
+			<div>
+				<h3 class="pp-panel-title">监控设置</h3>
+				<div class="pp-panel-note">保存并应用时，如果当前监控已启用，会自动重启并按最新配置同时监控国内与国外目标。</div>
+			</div>
 		</div>
-		<div class="pp-form-group">
-			<label for="foreignInput">Ping 国外 IP 或域名</label>
-			<input type="text" id="foreignInput" placeholder="例如：8.8.8.8 或 google.com">
-			<div class="pp-hint">留空则不启用国外监控。</div>
+
+		<div class="pp-form-grid">
+			<div class="pp-field">
+				<label for="domesticInput">Ping 国内 IP 或域名</label>
+				<div class="pp-input-wrap">
+					<input class="pp-input" type="text" id="domesticInput" placeholder="例如：114.114.114.114 或 baidu.com">
+				</div>
+				<div class="pp-hint">可留空；若与国外目标都为空，则无法保存或启用监控。</div>
+			</div>
+
+			<div class="pp-field">
+				<label for="foreignInput">Ping 国外 IP 或域名</label>
+				<div class="pp-input-wrap">
+					<input class="pp-input" type="text" id="foreignInput" placeholder="例如：8.8.8.8 或 google.com">
+				</div>
+				<div class="pp-hint">保存后会写入配置并在服务启用状态下自动重启，使两个目标同时生效。</div>
+			</div>
 		</div>
+
 		<div class="pp-actions">
-			<button class="pp-btn pp-btn-primary" onclick="saveConfig()">保存并应用</button>
-			<span class="pp-msg" id="saveMsg"></span>
+			<div class="pp-action-copy">监控窗口保留最近 120 次样本，页面会自动轮询刷新。</div>
+			<div class="pp-action-right">
+				<button class="pp-button" id="saveButton" onclick="saveConfig()">保存并应用</button>
+				<span class="pp-message" id="saveMsg"></span>
+			</div>
 		</div>
 	</div>
 </div>
 
 <script>
-(function(){
+(function() {
 	var apiBase = '<%=url("admin/status/pingpacket")%>';
 	var formToken = (window.L && L.env && L.env.token) ? L.env.token : '<%=token%>';
 	var dataUrl = apiBase + '/get_data';
 	var saveUrl = apiBase + '/save_config';
 	var pollTimer = null;
-	var startTimeRef = null;
+	var pollInFlight = false;
+	var saveInFlight = false;
 	var durationTimer = null;
-	var requestPending = false;
+	var startTimeRef = null;
 	var inputDirty = {
 		domestic: false,
 		foreign: false
 	};
+	var pollInterval = 1500;
 
-	function $(id){ return document.getElementById(id); }
+	function $(id) {
+		return document.getElementById(id);
+	}
 
-	function formatDuration(seconds){
+	function schedulePoll(delay) {
+		if (pollTimer) {
+			clearTimeout(pollTimer);
+		}
+		pollTimer = setTimeout(fetchData, typeof delay === 'number' ? delay : pollInterval);
+	}
+
+	function parseStartTime(value) {
+		var match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value || '');
+		if (!match) {
+			return null;
+		}
+
+		return new Date(
+			Number(match[1]),
+			Number(match[2]) - 1,
+			Number(match[3]),
+			Number(match[4]),
+			Number(match[5]),
+			Number(match[6])
+		);
+	}
+
+	function formatDuration(seconds) {
 		var h = Math.floor(seconds / 3600);
 		var m = Math.floor((seconds % 3600) / 60);
 		var s = Math.floor(seconds % 60);
+
 		return String(h).padStart(2, '0') + ':' +
-		       String(m).padStart(2, '0') + ':' +
-		       String(s).padStart(2, '0');
+			String(m).padStart(2, '0') + ':' +
+			String(s).padStart(2, '0');
 	}
 
-	function updateDuration(){
-		if(!startTimeRef) return;
+	function updateDuration() {
+		if (!startTimeRef) {
+			return;
+		}
+
 		var elapsed = Math.max(0, Math.floor((Date.now() - startTimeRef.getTime()) / 1000));
 		$('duration').textContent = formatDuration(elapsed);
 	}
 
-	function setMessage(text, type){
-		var msg = $('saveMsg');
-		msg.textContent = text || '';
-		msg.className = 'pp-msg' + (type ? ' ' + type : '');
+	function setControlsDisabled(disabled) {
+		$('enableSwitch').disabled = disabled;
+		$('saveButton').disabled = disabled;
+		$('domesticInput').disabled = disabled;
+		$('foreignInput').disabled = disabled;
 	}
 
-	function syncInputValue(id, value, key){
+	function setMessage(text, type) {
+		var node = $('saveMsg');
+		node.textContent = text || '';
+		node.className = 'pp-message' + (type ? ' ' + type : '');
+	}
+
+	function hasAnyTarget() {
+		return $('domesticInput').value.trim() !== '' || $('foreignInput').value.trim() !== '';
+	}
+
+	function clearDirtyState() {
+		inputDirty.domestic = false;
+		inputDirty.foreign = false;
+	}
+
+	function syncInputValue(id, value, key) {
 		var input = $(id);
-		if(inputDirty[key] || document.activeElement === input){
+		if (inputDirty[key] || document.activeElement === input) {
 			return;
 		}
 
 		input.value = value || '';
 	}
 
-	function clearDirtyState(){
-		inputDirty.domestic = false;
-		inputDirty.foreign = false;
+	function setTarget(id, value) {
+		var target = $(id);
+		if (value) {
+			target.textContent = value;
+			target.className = 'pp-target';
+		} else {
+			target.textContent = '未配置';
+			target.className = 'pp-target inactive';
+		}
 	}
 
-	function hasAnyTarget(){
-		return $('domesticInput').value.trim() !== '' || $('foreignInput').value.trim() !== '';
+	function setServiceState(enabled, running) {
+		var badge = $('serviceBadge');
+		var label = $('toggleLabel');
+
+		if (enabled && running) {
+			badge.textContent = '运行中';
+			badge.className = 'pp-badge running';
+			label.textContent = '监控已启用，数据正在持续刷新';
+			return;
+		}
+
+		if (enabled && !running) {
+			badge.textContent = '启动中';
+			badge.className = 'pp-badge pending';
+			label.textContent = '正在重启服务，等待首个监控结果';
+			return;
+		}
+
+		badge.textContent = '已关闭';
+		badge.className = 'pp-badge stopped';
+		label.textContent = '监控未启用';
 	}
 
-	function buildPayload(enabled, requestSource){
-		var dom = $('domesticInput').value.trim();
-		var frg = $('foreignInput').value.trim();
+	function setStat(prefix, stats) {
+		var successCount = Number(stats && stats.count || 0);
+		var sampleCount = Number(stats && stats.samples || 0);
+		var avg = successCount > 0 ? stats.avg : '--';
+		var min = successCount > 0 ? stats.min : '--';
+		var max = successCount > 0 ? stats.max : '--';
+		var loss = sampleCount > 0 ? stats.loss_rate : '--';
+		var lossCard = $(prefix + 'LossCard');
+		var lossRate = parseFloat(stats && stats.loss_rate || '0');
 
+		$(prefix + 'Avg').textContent = avg;
+		$(prefix + 'Min').textContent = min;
+		$(prefix + 'Max').textContent = max;
+		$(prefix + 'Loss').textContent = loss;
+		$(prefix + 'Samples').textContent = String(sampleCount);
+
+		lossCard.className = 'pp-stat loss';
+		if (sampleCount > 0) {
+			if (lossRate < 1) {
+				lossCard.className += ' good';
+			} else if (lossRate < 5) {
+				lossCard.className += ' warn';
+			} else {
+				lossCard.className += ' bad';
+			}
+		}
+	}
+
+	function buildPayload(enabled, requestSource) {
 		return 'token=' + encodeURIComponent(formToken) +
 			'&enabled=' + encodeURIComponent(enabled) +
 			'&request_source=' + encodeURIComponent(requestSource || '') +
-			'&domestic_target=' + encodeURIComponent(dom) +
-			'&foreign_target=' + encodeURIComponent(frg);
+			'&domestic_target=' + encodeURIComponent($('domesticInput').value.trim()) +
+			'&foreign_target=' + encodeURIComponent($('foreignInput').value.trim());
 	}
 
-	function updateUI(data){
-		$('enableSwitch').checked = (data.enabled === '1');
-		$('toggleLabel').textContent = (data.enabled === '1') ? '已启用' : '已关闭';
+	function updateUI(data) {
+		var enabled = data.enabled === '1';
+
+		$('enableSwitch').checked = enabled;
+		setServiceState(enabled, !!data.service_running);
 
 		syncInputValue('domesticInput', data.domestic_target || '', 'domestic');
 		syncInputValue('foreignInput', data.foreign_target || '', 'foreign');
 
-		var dt = $('domesticTarget');
-		if(data.domestic_target){
-			dt.textContent = data.domestic_target;
-			dt.className = 'pp-target';
-		} else {
-			dt.textContent = '未配置';
-			dt.className = 'pp-target inactive';
-		}
+		setTarget('domesticTarget', data.domestic_target || '');
+		setTarget('foreignTarget', data.foreign_target || '');
 
-		var ft = $('foreignTarget');
-		if(data.foreign_target){
-			ft.textContent = data.foreign_target;
-			ft.className = 'pp-target';
-		} else {
-			ft.textContent = '未配置';
-			ft.className = 'pp-target inactive';
-		}
+		setStat('domestic', data.domestic || {});
+		setStat('foreign', data.foreign || {});
 
-		function setStat(prefix, stats){
-			var n = stats.count || 0;
-			$(prefix + 'Avg').innerHTML = (n > 0 ? stats.avg : '--') + '<span class="pp-unit">ms</span>';
-			$(prefix + 'Min').innerHTML = (n > 0 ? stats.min : '--') + '<span class="pp-unit">ms</span>';
-			$(prefix + 'Max').innerHTML = (n > 0 ? stats.max : '--') + '<span class="pp-unit">ms</span>';
-			$(prefix + 'Loss').innerHTML = (n > 0 ? stats.loss_rate : '--') + '<span class="pp-unit">%</span>';
+		$('updatedAt').textContent = data.updated_at || '--';
 
-			var lossBox = $(prefix + 'LossBox');
-			lossBox.className = 'pp-stat pp-loss';
-			if(n > 0){
-				var lr = parseFloat(stats.loss_rate) || 0;
-				if(lr < 1) lossBox.className += ' pp-loss-good';
-				else if(lr < 5) lossBox.className += ' pp-loss-warn';
-				else lossBox.className += ' pp-loss-bad';
-			}
-		}
-
-		setStat('domestic', data.domestic);
-		setStat('foreign', data.foreign);
-
-		if(data.start_time){
+		if (data.start_time) {
 			$('startTime').textContent = data.start_time;
-			startTimeRef = new Date(data.start_time.replace(/-/g, '/'));
-			updateDuration();
-			if(!durationTimer){
-				durationTimer = setInterval(updateDuration, 1000);
+			startTimeRef = parseStartTime(data.start_time);
+			if (startTimeRef) {
+				updateDuration();
+				if (!durationTimer) {
+					durationTimer = setInterval(updateDuration, 1000);
+				}
 			}
 		} else {
 			$('startTime').textContent = '--';
 			$('duration').textContent = '--';
 			startTimeRef = null;
-			if(durationTimer){
+			if (durationTimer) {
 				clearInterval(durationTimer);
 				durationTimer = null;
 			}
 		}
 	}
 
-	function fetchData(){
-		if(requestPending){
+	function fetchData() {
+		if (pollInFlight || saveInFlight) {
+			schedulePoll(pollInterval);
 			return;
 		}
 
+		pollInFlight = true;
+
 		var xhr = new XMLHttpRequest();
-		xhr.open('GET', dataUrl, true);
-		xhr.onload = function(){
-			if(xhr.status === 200){
+		xhr.open('GET', dataUrl + '?_=' + Date.now(), true);
+		xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+		xhr.onload = function() {
+			if (xhr.status === 200) {
 				try {
 					updateUI(JSON.parse(xhr.responseText));
-				} catch(e) {}
+				} catch (e) {}
 			}
 		};
+		xhr.onloadend = function() {
+			pollInFlight = false;
+			schedulePoll(pollInterval);
+		};
+		xhr.onerror = function() {};
 		xhr.send();
 	}
 
-	function submitConfig(requestSource, onSuccess, onFailure){
+	function submitConfig(requestSource, onSuccess, onFailure) {
+		if (saveInFlight) {
+			return;
+		}
+
 		var enabled = $('enableSwitch').checked ? '1' : '0';
 		var xhr = new XMLHttpRequest();
 
-		requestPending = true;
+		saveInFlight = true;
+		setControlsDisabled(true);
+		setMessage(requestSource === 'save' ? '正在保存并应用配置...' : '正在更新监控状态...', '');
+
 		xhr.open('POST', saveUrl, true);
 		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-		xhr.onload = function(){
+		xhr.onload = function() {
 			var response = null;
 
-			requestPending = false;
-			if(xhr.status === 200){
+			if (xhr.status === 200) {
 				try {
 					response = JSON.parse(xhr.responseText);
-				} catch(e) {}
+				} catch (e) {}
 			}
 
-			if(response && response.success){
+			if (response && response.success) {
 				clearDirtyState();
-				if(onSuccess) onSuccess();
-			} else {
-				if(onFailure) onFailure(response && response.message ? response.message : '');
+				if (onSuccess) {
+					onSuccess(enabled === '1');
+				}
+			} else if (onFailure) {
+				onFailure(response && response.message ? response.message : '');
 			}
-
-			fetchData();
 		};
-		xhr.onerror = function(){
-			requestPending = false;
-			if(onFailure) onFailure('');
+		xhr.onerror = function() {
+			if (onFailure) {
+				onFailure('');
+			}
+		};
+		xhr.onloadend = function() {
+			saveInFlight = false;
+			setControlsDisabled(false);
 			fetchData();
 		};
 		xhr.send(buildPayload(enabled, requestSource));
 	}
 
-	window.toggleService = function(){
+	window.toggleService = function() {
 		var enableSwitch = $('enableSwitch');
 		var previousChecked = !enableSwitch.checked;
 
-		if(enableSwitch.checked && !hasAnyTarget()){
+		if (enableSwitch.checked && !hasAnyTarget()) {
 			enableSwitch.checked = previousChecked;
 			alert('请至少配置一个目标。');
 			return;
@@ -336,42 +945,41 @@
 
 		submitConfig(
 			'toggle',
-			function(){
-				setMessage('', '');
+			function(enabled) {
+				setMessage(enabled ? '监控已启用。' : '监控已关闭。', 'success');
 			},
-			function(message){
+			function(message) {
 				enableSwitch.checked = previousChecked;
-				alert(message || '保存失败，请刷新页面后重试。');
+				setMessage(message || '状态更新失败，请稍后重试。', 'error');
 			}
 		);
 	};
 
-	window.saveConfig = function(){
-		if(!hasAnyTarget()){
+	window.saveConfig = function() {
+		if (!hasAnyTarget()) {
 			setMessage('请至少配置一个目标。', 'error');
 			return;
 		}
 
 		submitConfig(
 			'save',
-			function(){
-				setMessage('保存成功。', 'success');
+			function(enabled) {
+				setMessage(enabled ? '已保存配置并重启监控服务。' : '保存成功。', 'success');
 			},
-			function(message){
-				setMessage(message || '保存失败，请刷新页面后重试。', 'error');
+			function(message) {
+				setMessage(message || '保存失败，请稍后重试。', 'error');
 			}
 		);
 	};
 
-	$('domesticInput').addEventListener('input', function(){
+	$('domesticInput').addEventListener('input', function() {
 		inputDirty.domestic = true;
 	});
 
-	$('foreignInput').addEventListener('input', function(){
+	$('foreignInput').addEventListener('input', function() {
 		inputDirty.foreign = true;
 	});
 
-	pollTimer = setInterval(fetchData, 2000);
 	fetchData();
 })();
 </script>

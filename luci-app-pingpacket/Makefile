@@ -50,6 +50,16 @@ endef
 
 define Package/$(PKG_NAME)/postinst
 [ -n "$${IPKG_INSTROOT}" ] || { \
+	changed=0; \
+	if [ -z "$$(uci -q get pingpacket.config.domestic_target)" ]; then \
+		uci set pingpacket.config.domestic_target='www.baidu.com'; \
+		changed=1; \
+	fi; \
+	if [ -z "$$(uci -q get pingpacket.config.foreign_target)" ]; then \
+		uci set pingpacket.config.foreign_target='www.google.com'; \
+		changed=1; \
+	fi; \
+	[ "$$changed" = "1" ] && uci commit pingpacket; \
 	rm -f /tmp/luci-indexcache.*; \
 	rm -rf /tmp/luci-modulecache/; \
 	/etc/init.d/rpcd reload 2>/dev/null; \
