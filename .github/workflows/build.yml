@@ -131,10 +131,11 @@ jobs:
         run: |
           cd sdk
           cp feeds.conf.default feeds.conf
-          { echo "src-link $LOCAL_FEED_NAME $LOCAL_FEED_DIR"; cat feeds.conf.default; } > feeds.conf
+          echo "src-link $LOCAL_FEED_NAME $LOCAL_FEED_DIR" >> feeds.conf
           echo "===== feeds.conf ====="
           cat feeds.conf
-          ./scripts/feeds update -a
+          ./scripts/feeds update packages routing telephony luci
+          ./scripts/feeds update "$LOCAL_FEED_NAME"
           ./scripts/feeds install -p luci luci-base
           ./scripts/feeds install -f -p "$LOCAL_FEED_NAME" "$PACKAGE_NAME"
           test -f "$SDK_PACKAGE_DIR/Makefile"
