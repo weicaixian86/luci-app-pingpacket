@@ -148,11 +148,12 @@ jobs:
           set -o pipefail
           cd sdk
           make defconfig
-          if ! make -rqp 2>/dev/null | grep -Fq "${PACKAGE_BUILD_TARGET}:"; then
+          make -rqp 2>/dev/null > make-${PACKAGE_NAME}.db
+          if ! grep -Fq "${PACKAGE_BUILD_TARGET}:" make-${PACKAGE_NAME}.db; then
             echo "Unable to resolve build target: $PACKAGE_BUILD_TARGET"
             find package/feeds -maxdepth 4 -path "*/${PACKAGE_NAME}/Makefile" | sort || true
             find feeds -maxdepth 2 -type f \( -name "*.index" -o -name "*.tmp" \) | sort || true
-            make -rqp 2>/dev/null | grep -F "${PACKAGE_NAME}" | head -n 50 || true
+            awk -v needle="${PACKAGE_NAME}" 'index($0, needle) { print; count++; if (count >= 50) exit }' "make-${PACKAGE_NAME}.db" || true
             exit 1
           fi
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
