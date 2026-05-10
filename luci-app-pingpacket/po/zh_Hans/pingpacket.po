@@ -75,3 +75,6 @@ msgstr "状态"
 
 msgid "Please configure at least one target."
 msgstr "请至少配置一个目标"
+
+msgid "Failed to update service state."
+msgstr "更新服务状态失败。"

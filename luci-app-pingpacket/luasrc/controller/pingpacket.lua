@@ -1,5 +1,21 @@
 module("luci.controller.pingpacket", package.seeall)
 
+local function trim(value)
+	return (value or ""):gsub("%c", ""):match("^%s*(.-)%s*$") or ""
+end
+
+local function normalize_enabled(value)
+	return value == "1" and "1" or "0"
+end
+
+local function write_json(payload)
+	local http = require("luci.http")
+	local jsonc = require("luci.jsonc")
+
+	http.prepare_content("application/json")
+	http.write(jsonc.stringify(payload))
+end
+
 function index()
 	if not nixio.fs.access("/etc/config/pingpacket") then
 		return
@@ -35,7 +51,7 @@ function action_get_data()
 		service_running = false
 	}
 
-	result.service_running = (sys.call("[ -f /var/run/pingpacket/start_time ]") == 0)
+	result.service_running = (sys.call("[ -s /var/run/pingpacket/start_time ]") == 0)
 
 	local f = io.open("/tmp/pingpacket_status.json", "r")
 	if f then
@@ -55,40 +71,44 @@ function action_get_data()
 		end
 	end
 
-	luci.http.prepare_content("application/json")
-	luci.http.write(jsonc.stringify(result))
+	write_json(result)
 end
 
 function action_save_config()
 	local uci = require("luci.model.uci").cursor()
 	local sys = require("luci.sys")
-	local jsonc = require("luci.jsonc")
+	local http = require("luci.http")
 
-	local enabled = luci.http.formvalue("enabled") or "0"
-	local domestic = luci.http.formvalue("domestic_target") or ""
-	local foreign = luci.http.formvalue("foreign_target") or ""
+	local enabled = normalize_enabled(http.formvalue("enabled"))
+	local domestic = trim(http.formvalue("domestic_target"))
+	local foreign = trim(http.formvalue("foreign_target"))
+
+	if enabled == "1" then
+		if domestic == "" and foreign == "" then
+			write_json({
+				success = false,
+				message = _("Please configure at least one target.")
+			})
+			return
+		end
+	end
 
 	uci:set("pingpacket", "config", "enabled", enabled)
 	uci:set("pingpacket", "config", "domestic_target", domestic)
 	uci:set("pingpacket", "config", "foreign_target", foreign)
 	uci:commit("pingpacket")
 
-	sys.call("rm -f /tmp/luci-indexcache")
+	sys.call("rm -f /tmp/luci-indexcache*")
 
-	local success = true
-	local msg = ""
-
+	local rc
 	if enabled == "1" then
-		if domestic == "" and foreign == "" then
-			success = false
-			msg = _("Please configure at least one target.")
-		else
-			sys.call("/etc/init.d/pingpacket restart")
-		end
+		rc = sys.call("/etc/init.d/pingpacket restart >/dev/null 2>&1")
 	else
-		sys.call("/etc/init.d/pingpacket stop")
+		rc = sys.call("/etc/init.d/pingpacket stop >/dev/null 2>&1")
 	end
 
-	luci.http.prepare_content("application/json")
-	luci.http.write(jsonc.stringify({ success = success, message = msg }))
+	write_json({
+		success = (rc == 0),
+		message = (rc == 0) and "" or _("Failed to update service state.")
+	})
 end

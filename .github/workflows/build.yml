@@ -69,13 +69,6 @@ jobs:
           mkdir -p sdk
           tar --zstd -xf openwrt-sdk.tar.zst -C sdk --strip-components=1
 
-      - name: Prepare feeds
-        shell: bash
-        run: |
-          cd sdk
-          ./scripts/feeds update -a
-          ./scripts/feeds install -p luci luci-base
-
       - name: Detect package source dir
         shell: bash
         run: |
@@ -88,12 +81,18 @@ jobs:
             find "$GITHUB_WORKSPACE" -maxdepth 4 -type f -name Makefile | sort
             exit 1
           fi
-          SDK_PACKAGE_DIR="$GITHUB_WORKSPACE/sdk/package/custom/${PACKAGE_NAME}"
-          PACKAGE_BUILD_TARGET="package/custom/${PACKAGE_NAME}/compile"
+          LOCAL_FEED_NAME="pingpacket-local"
+          LOCAL_FEED_DIR="$GITHUB_WORKSPACE/local-feed"
+          SDK_PACKAGE_DIR="$GITHUB_WORKSPACE/sdk/package/feeds/${LOCAL_FEED_NAME}/${PACKAGE_NAME}"
+          PACKAGE_BUILD_TARGET="package/feeds/${LOCAL_FEED_NAME}/${PACKAGE_NAME}/compile"
           echo "APP_SOURCE_DIR=$APP_SOURCE_DIR" >> "$GITHUB_ENV"
+          echo "LOCAL_FEED_NAME=$LOCAL_FEED_NAME" >> "$GITHUB_ENV"
+          echo "LOCAL_FEED_DIR=$LOCAL_FEED_DIR" >> "$GITHUB_ENV"
           echo "SDK_PACKAGE_DIR=$SDK_PACKAGE_DIR" >> "$GITHUB_ENV"
           echo "PACKAGE_BUILD_TARGET=$PACKAGE_BUILD_TARGET" >> "$GITHUB_ENV"
           echo "Resolved APP_SOURCE_DIR=$APP_SOURCE_DIR"
+          echo "Resolved LOCAL_FEED_NAME=$LOCAL_FEED_NAME"
+          echo "Resolved LOCAL_FEED_DIR=$LOCAL_FEED_DIR"
           echo "Resolved SDK_PACKAGE_DIR=$SDK_PACKAGE_DIR"
           echo "Resolved PACKAGE_BUILD_TARGET=$PACKAGE_BUILD_TARGET"
 
@@ -110,20 +109,35 @@ jobs:
           sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
           grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
 
-      - name: Stage package into SDK
+      - name: Stage package into local feed
         shell: bash
         run: |
-          rm -rf "$SDK_PACKAGE_DIR"
-          mkdir -p "$SDK_PACKAGE_DIR"
+          rm -rf "$LOCAL_FEED_DIR"
+          mkdir -p "$LOCAL_FEED_DIR/$PACKAGE_NAME"
           rsync -a \
             --delete \
             --exclude '.git' \
             --exclude '.github' \
+            --exclude 'local-feed' \
             --exclude 'sdk' \
             --exclude 'output' \
-            "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/" "$SDK_PACKAGE_DIR/"
+            "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/" "$LOCAL_FEED_DIR/$PACKAGE_NAME/"
+          test -f "$LOCAL_FEED_DIR/$PACKAGE_NAME/Makefile"
+          find "$LOCAL_FEED_DIR" -maxdepth 3 -type f -name Makefile | sort
+          grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$LOCAL_FEED_DIR/$PACKAGE_NAME/Makefile"
+
+      - name: Prepare feeds
+        shell: bash
+        run: |
+          cd sdk
+          cp feeds.conf.default feeds.conf
+          echo "src-link $LOCAL_FEED_NAME $LOCAL_FEED_DIR" >> feeds.conf
+          ./scripts/feeds update luci
+          ./scripts/feeds update "$LOCAL_FEED_NAME"
+          ./scripts/feeds install -p luci luci-base
+          ./scripts/feeds install -p "$LOCAL_FEED_NAME" "$PACKAGE_NAME"
           test -f "$SDK_PACKAGE_DIR/Makefile"
-          grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$SDK_PACKAGE_DIR/Makefile"
+          find package/feeds -maxdepth 4 -path "*/${PACKAGE_NAME}/Makefile" | sort
 
       - name: Build package
         shell: bash
@@ -131,7 +145,8 @@ jobs:
           set -o pipefail
           cd sdk
           make defconfig
-          make "${PACKAGE_BUILD_TARGET}" V=sc -j"$(nproc)" 2>&1 | tee build-${PACKAGE_NAME}.log
+          echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
+          make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee build-${PACKAGE_NAME}.log
 
       - name: Dump package build logs on failure
         if: failure()

@@ -73,7 +73,7 @@
 
 	<div class="pp-timebar">
 		<div><%=translate("Start Time")%>: <strong id="startTime">--</strong></div>
-		<div><%=translate("Duration")%>: <strong id="duration">00:00:00</strong></div>
+		<div><%=translate("Duration")%>: <strong id="duration">--</strong></div>
 	</div>
 
 	<div class="pp-cards">
@@ -224,7 +224,12 @@
 			}
 		} else {
 			$('startTime').textContent = '--';
+			$('duration').textContent = '--';
 			startTimeRef = null;
+			if(durationTimer){
+				clearInterval(durationTimer);
+				durationTimer = null;
+			}
 		}
 	}
 
@@ -242,6 +247,8 @@
 	window.toggleService = function(){
 		var enableSwitch = $('enableSwitch');
 		var enabled = enableSwitch.checked ? '1' : '0';
+		var dom = $('domesticInput').value.trim();
+		var frg = $('foreignInput').value.trim();
 		var xhr = new XMLHttpRequest();
 		xhr.open('POST', saveUrl, true);
 		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -251,11 +258,12 @@
 					var r = JSON.parse(xhr.responseText);
 					if(!r.success){ alert(r.message || 'Error'); enableSwitch.checked = !enableSwitch.checked; }
 				} catch(e){}
+			} else {
+				enableSwitch.checked = !enableSwitch.checked;
+				alert('<%=translate("Save failed.")%>');
 			}
 			fetchData();
 		};
-		var dom = $('domesticInput').value;
-		var frg = $('foreignInput').value;
 		xhr.send('enabled=' + enabled + '&domestic_target=' + encodeURIComponent(dom) + '&foreign_target=' + encodeURIComponent(frg));
 	};
 
@@ -279,6 +287,9 @@
 					msg.textContent = '<%=translate("Save failed.")%>';
 					msg.className = 'pp-msg error';
 				}
+			} else {
+				msg.textContent = '<%=translate("Save failed.")%>';
+				msg.className = 'pp-msg error';
 			}
 			fetchData();
 		};

@@ -1,11 +1,22 @@
 #!/bin/sh
 
 STATUS_FILE="/tmp/pingpacket_status.json"
+STATUS_TMP="${STATUS_FILE}.tmp"
 RUN_DIR="/var/run/pingpacket"
 START_TIME_FILE="$RUN_DIR/start_time"
+child_pids=""
+
+kill_children() {
+	[ -n "$child_pids" ] || return 0
+	kill $child_pids 2>/dev/null
+	wait $child_pids 2>/dev/null
+	child_pids=""
+}
 
 cleanup() {
-	rm -f "$STATUS_FILE"
+	kill_children
+	rm -f "$STATUS_FILE" "$STATUS_TMP"
+	rm -rf "$RUN_DIR"
 	exit 0
 }
 trap cleanup INT TERM
@@ -56,21 +67,31 @@ calc_stats() {
 
 while true; do
 	START=$(cat "$START_TIME_FILE" 2>/dev/null || echo "")
+	dom=""
+	frg=""
 
 	if [ -f "$RUN_DIR/config" ]; then
 		dom=$(sed -n '1p' "$RUN_DIR/config")
 		frg=$(sed -n '2p' "$RUN_DIR/config")
 	fi
 
-	[ -n "$dom" ] && do_ping "$dom" "domestic" &
-	[ -n "$frg" ] && do_ping "$frg" "foreign" &
-	wait 2>/dev/null
+	child_pids=""
+	if [ -n "$dom" ]; then
+		do_ping "$dom" "domestic" &
+		child_pids="$!"
+	fi
+	if [ -n "$frg" ]; then
+		do_ping "$frg" "foreign" &
+		child_pids="${child_pids:+$child_pids }$!"
+	fi
+	[ -n "$child_pids" ] && wait $child_pids 2>/dev/null
+	child_pids=""
 
 	dom_stats=$(calc_stats "$RUN_DIR/domestic_times")
 	frg_stats=$(calc_stats "$RUN_DIR/foreign_times")
 
 	printf '{"start_time":"%s","domestic":%s,"foreign":%s}\n' \
-		"$START" "$dom_stats" "$frg_stats" > "$STATUS_FILE"
+		"$START" "$dom_stats" "$frg_stats" > "$STATUS_TMP" && mv -f "$STATUS_TMP" "$STATUS_FILE"
 
 	sleep 1
 done
