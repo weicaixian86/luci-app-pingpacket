@@ -1,0 +1,183 @@
+name: Build luci-app-pingpacket for OpenWrt 24.10 x86_64
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag"
+        required: true
+        default: "v1.0.0"
+      release_description:
+        description: "Release description"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+env:
+  TZ: Asia/Shanghai
+  OPENWRT_VERSION: "24.10.0"
+  OPENWRT_TARGET: "x86/64"
+  SDK_URL: "https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
+  PACKAGE_NAME: "luci-app-pingpacket"
+
+jobs:
+  build:
+    name: Build and Release IPK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set build metadata
+        shell: bash
+        run: |
+          BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+          RELEASE_DESCRIPTION="${{ github.event.inputs.release_description }}"
+          echo "BUILD_TIME=$BUILD_TIME" >> "$GITHUB_ENV"
+          {
+            echo "RELEASE_BODY<<EOF"
+            printf '%s\n' "$RELEASE_DESCRIPTION"
+            if [ -n "$RELEASE_DESCRIPTION" ]; then
+              printf '\n'
+            fi
+            printf 'Build time: %s\n' "$BUILD_TIME"
+            printf 'OpenWrt: %s (%s)\n' "$OPENWRT_VERSION" "$OPENWRT_TARGET"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+            bzip2 ccache cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib \
+            genisoimage gettext git gperf haveged help2man intltool libc6-dev-i386 libelf-dev \
+            libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
+            libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
+            lrzsz mkisofs msmtp nano ninja-build p7zip-full patch pkgconf python3 python3-pip \
+            python3-ply python3-docutils qemu-utils rsync scons squashfs-tools subversion swig \
+            texinfo uglifyjs unzip vim wget xmlto xxd zlib1g-dev zstd
+
+      - name: Download OpenWrt SDK
+        shell: bash
+        run: |
+          wget -q -O openwrt-sdk.tar.zst "$SDK_URL"
+          mkdir -p sdk
+          tar --zstd -xf openwrt-sdk.tar.zst -C sdk --strip-components=1
+
+      - name: Prepare feeds
+        shell: bash
+        run: |
+          cd sdk
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Detect package source dir
+        shell: bash
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/Makefile" ] && grep -q "^PKG_NAME:=${PACKAGE_NAME}$" "$GITHUB_WORKSPACE/Makefile"; then
+            APP_SOURCE_DIR="."
+          elif [ -f "$GITHUB_WORKSPACE/${PACKAGE_NAME}/Makefile" ] && grep -q "^PKG_NAME:=${PACKAGE_NAME}$" "$GITHUB_WORKSPACE/${PACKAGE_NAME}/Makefile"; then
+            APP_SOURCE_DIR="${PACKAGE_NAME}"
+          else
+            echo "Unable to locate package source directory"
+            find "$GITHUB_WORKSPACE" -maxdepth 4 -type f -name Makefile | sort
+            exit 1
+          fi
+          echo "APP_SOURCE_DIR=$APP_SOURCE_DIR" >> "$GITHUB_ENV"
+          echo "Resolved APP_SOURCE_DIR=$APP_SOURCE_DIR"
+
+      - name: Apply package version from release tag
+        shell: bash
+        run: |
+          RAW_TAG="${{ github.event.inputs.release_tag }}"
+          VERSION="${RAW_TAG#v}"
+          VERSION="${VERSION#V}"
+          test -n "$RAW_TAG"
+          test -n "$VERSION"
+          echo "RAW_TAG=$RAW_TAG" >> "$GITHUB_ENV"
+          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
+          grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
+
+      - name: Link package into SDK
+        shell: bash
+        run: |
+          test -n "${APP_SOURCE_DIR}"
+          test -d "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}"
+          test -f "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
+          cd sdk
+          mkdir -p package/custom
+          rm -rf "package/custom/${PACKAGE_NAME}"
+          cp -a "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}" "package/custom/${PACKAGE_NAME}"
+          test -f "package/custom/${PACKAGE_NAME}/Makefile"
+
+      - name: Generate defconfig
+        shell: bash
+        run: |
+          cd sdk
+          make defconfig
+
+      - name: Build package
+        shell: bash
+        run: |
+          set -o pipefail
+          cd sdk
+          make package/${PACKAGE_NAME}/compile V=sc -j"$(nproc)" 2>&1 | tee build-${PACKAGE_NAME}.log
+
+      - name: Dump package build logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "===== build-${PACKAGE_NAME}.log ====="
+          test -f "sdk/build-${PACKAGE_NAME}.log" && tail -n 500 "sdk/build-${PACKAGE_NAME}.log" || true
+          echo "===== possible package logs ====="
+          find sdk/build_dir -type f \( -name "*.log" -o -name "config.err" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) | sort || true
+
+      - name: Collect IPK files
+        shell: bash
+        run: |
+          mkdir -p output
+          find sdk/bin/packages -type f -name "${PACKAGE_NAME}_*.ipk" -exec cp -f {} output/ \;
+          test -n "$(find output -maxdepth 1 -type f -name '*.ipk')"
+          for file in output/*.ipk; do
+            base="$(basename "$file")"
+            new_name="$(echo "$base" | sed -E "s/^${PACKAGE_NAME}_([^-]+)-r([0-9]+)_all\.ipk$/${PACKAGE_NAME}_${RAW_TAG}-r\2_all.ipk/")"
+            if [ "$new_name" != "$base" ]; then
+              mv -f "$file" "output/$new_name"
+            fi
+          done
+          ls -lah output
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-24.10-x86_64-ipk
+          path: output/*.ipk
+          if-no-files-found: error
+
+      - name: Remove existing release
+        uses: dev-drprasad/delete-tag-and-release@v1.1
+        with:
+          delete_release: true
+          tag_name: ${{ github.event.inputs.release_tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          name: ${{ github.event.inputs.release_tag }}
+          body: ${{ env.RELEASE_BODY }}
+          files: output/*.ipk
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          append_body: false
+          make_latest: true

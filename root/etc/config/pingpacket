@@ -1,0 +1,4 @@
+config pingpacket 'config'
+	option enabled '0'
+	option domestic_target ''
+	option foreign_target ''

@@ -1,0 +1,46 @@
+#!/bin/sh /etc/rc.common
+
+START=90
+STOP=10
+USE_PROCD=1
+
+PROG=/usr/bin/pingpacket.sh
+RUN_DIR=/var/run/pingpacket
+STATUS_FILE=/tmp/pingpacket_status.json
+
+start_service() {
+	local enabled domestic foreign
+	config_load pingpacket
+	config_get enabled config enabled "0"
+	config_get domestic config domestic_target ""
+	config_get foreign config foreign_target ""
+
+	[ "$enabled" = "1" ] || return 0
+	[ -n "$domestic" ] || [ -n "$foreign" ] || return 0
+
+	mkdir -p "$RUN_DIR"
+	printf '%s\n' "$domestic" > "$RUN_DIR/config"
+	printf '%s\n' "$foreign" >> "$RUN_DIR/config"
+
+	procd_open_instance
+	procd_set_param command /bin/sh "$PROG"
+	procd_set_param respawn 3600 5 10
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+stop_service() {
+	rm -rf "$RUN_DIR"
+	rm -f "$STATUS_FILE"
+	killall ping 2>/dev/null
+}
+
+reload_service() {
+	stop
+	start
+}
+
+service_triggers() {
+	procd_add_reload_trigger "pingpacket"
+}
