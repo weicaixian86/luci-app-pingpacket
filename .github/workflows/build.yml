@@ -81,7 +81,7 @@ jobs:
             find "$GITHUB_WORKSPACE" -maxdepth 4 -type f -name Makefile | sort
             exit 1
           fi
-          LOCAL_FEED_NAME="pingpacket-local"
+          LOCAL_FEED_NAME="pingpacket_local"
           LOCAL_FEED_DIR="$GITHUB_WORKSPACE/local-feed"
           SDK_PACKAGE_DIR="$GITHUB_WORKSPACE/sdk/package/feeds/${LOCAL_FEED_NAME}/${PACKAGE_NAME}"
           PACKAGE_BUILD_TARGET="package/feeds/${LOCAL_FEED_NAME}/${PACKAGE_NAME}/compile"
