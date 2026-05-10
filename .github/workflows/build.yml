@@ -145,6 +145,14 @@ jobs:
           grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$SDK_PACKAGE_DIR/Makefile"
           find package/feeds -maxdepth 4 -path "*/${PACKAGE_NAME}/Makefile" | sort
 
+      - name: Select package config
+        shell: bash
+        run: |
+          cd sdk
+          echo "CONFIG_PACKAGE_${PACKAGE_NAME}=m" >> .config
+          echo "===== package selection ====="
+          grep -F "CONFIG_PACKAGE_${PACKAGE_NAME}=" .config
+
       - name: Build package
         shell: bash
         run: |
