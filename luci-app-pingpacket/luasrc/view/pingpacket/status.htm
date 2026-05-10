@@ -96,6 +96,11 @@
 	color: rgba(255, 255, 255, 0.92);
 }
 
+.pp-badge.stale {
+	background: rgba(255, 138, 101, 0.2);
+	color: #ffe2d8;
+}
+
 .pp-toggle-label {
 	font-size: 14px;
 	color: rgba(255, 255, 255, 0.92);
@@ -168,6 +173,11 @@
 .pp-meta-card {
 	padding: 14px 16px;
 	border-radius: 14px;
+}
+
+.pp-meta-card.stale {
+	border-color: #f2b8a7;
+	background: linear-gradient(180deg, #fff8f6, #fff2ee);
 }
 
 .pp-meta-label {
@@ -443,6 +453,20 @@
 	box-shadow: none;
 }
 
+.pp-button-secondary {
+	color: #a34717;
+	background: linear-gradient(135deg, #ffe0c7, #ffd2b0);
+	box-shadow: 0 10px 24px rgba(240, 123, 45, 0.14);
+}
+
+.pp-button-secondary:hover {
+	box-shadow: 0 12px 28px rgba(240, 123, 45, 0.18);
+}
+
+.pp-button-secondary.hidden {
+	display: none;
+}
+
 .pp-message {
 	min-height: 20px;
 	font-size: 13px;
@@ -535,7 +559,7 @@
 			<span class="pp-meta-label">运行时长</span>
 			<div class="pp-meta-value" id="duration">--</div>
 		</div>
-		<div class="pp-meta-card">
+		<div class="pp-meta-card" id="updatedCard">
 			<span class="pp-meta-label">最近更新</span>
 			<div class="pp-meta-value" id="updatedAt">--</div>
 		</div>
@@ -654,6 +678,7 @@
 		<div class="pp-actions">
 			<div class="pp-action-copy">监控窗口保留最近 120 次样本，页面会自动轮询刷新。</div>
 			<div class="pp-action-right">
+				<button class="pp-button pp-button-secondary hidden" id="restartButton" onclick="restartService()">重新启动服务</button>
 				<button class="pp-button" id="saveButton" onclick="saveConfig()">保存并应用</button>
 				<span class="pp-message" id="saveMsg"></span>
 			</div>
@@ -667,16 +692,23 @@
 	var formToken = (window.L && L.env && L.env.token) ? L.env.token : '<%=token%>';
 	var dataUrl = apiBase + '/get_data';
 	var saveUrl = apiBase + '/save_config';
+	var restartUrl = apiBase + '/restart_service';
 	var pollTimer = null;
 	var pollInFlight = false;
 	var saveInFlight = false;
+	var restartInFlight = false;
 	var durationTimer = null;
 	var startTimeRef = null;
 	var inputDirty = {
 		domestic: false,
 		foreign: false
 	};
+	var lastServerTargets = {
+		domestic: '',
+		foreign: ''
+	};
 	var pollInterval = 1500;
+	var staleThresholdMs = 10000;
 
 	function $(id) {
 		return document.getElementById(id);
@@ -689,7 +721,7 @@
 		pollTimer = setTimeout(fetchData, typeof delay === 'number' ? delay : pollInterval);
 	}
 
-	function parseStartTime(value) {
+	function parseDateTime(value) {
 		var match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value || '');
 		if (!match) {
 			return null;
@@ -727,6 +759,7 @@
 	function setControlsDisabled(disabled) {
 		$('enableSwitch').disabled = disabled;
 		$('saveButton').disabled = disabled;
+		$('restartButton').disabled = disabled;
 		$('domesticInput').disabled = disabled;
 		$('foreignInput').disabled = disabled;
 	}
@@ -744,6 +777,19 @@
 	function clearDirtyState() {
 		inputDirty.domestic = false;
 		inputDirty.foreign = false;
+	}
+
+	function refreshDirtyState(key, id) {
+		var input = $(id);
+		var currentValue = input.value.trim();
+		if (currentValue === (lastServerTargets[key] || '')) {
+			inputDirty[key] = false;
+		}
+	}
+
+	function refreshAllDirtyStates() {
+		refreshDirtyState('domestic', 'domesticInput');
+		refreshDirtyState('foreign', 'foreignInput');
 	}
 
 	function syncInputValue(id, value, key) {
@@ -766,9 +812,19 @@
 		}
 	}
 
-	function setServiceState(enabled, running) {
+	function setServiceState(enabled, running, stale) {
 		var badge = $('serviceBadge');
 		var label = $('toggleLabel');
+		var restartButton = $('restartButton');
+
+		restartButton.className = stale ? 'pp-button pp-button-secondary' : 'pp-button pp-button-secondary hidden';
+
+		if (enabled && running && stale) {
+			badge.textContent = '数据停滞';
+			badge.className = 'pp-badge stale';
+			label.textContent = '最近更新超过 10 秒，建议检查网络或服务状态';
+			return;
+		}
 
 		if (enabled && running) {
 			badge.textContent = '运行中';
@@ -827,9 +883,19 @@
 
 	function updateUI(data) {
 		var enabled = data.enabled === '1';
+		var serverTime = parseDateTime(data.server_time || '');
+		var updatedTime = parseDateTime(data.updated_at || '');
+		var stale = false;
+
+		if (enabled && data.service_running && serverTime && updatedTime) {
+			stale = (serverTime.getTime() - updatedTime.getTime()) > staleThresholdMs;
+		}
 
 		$('enableSwitch').checked = enabled;
-		setServiceState(enabled, !!data.service_running);
+		setServiceState(enabled, !!data.service_running, stale);
+
+		lastServerTargets.domestic = (data.domestic_target || '').trim();
+		lastServerTargets.foreign = (data.foreign_target || '').trim();
 
 		syncInputValue('domesticInput', data.domestic_target || '', 'domestic');
 		syncInputValue('foreignInput', data.foreign_target || '', 'foreign');
@@ -841,10 +907,11 @@
 		setStat('foreign', data.foreign || {});
 
 		$('updatedAt').textContent = data.updated_at || '--';
+		$('updatedCard').className = stale ? 'pp-meta-card stale' : 'pp-meta-card';
 
 		if (data.start_time) {
 			$('startTime').textContent = data.start_time;
-			startTimeRef = parseStartTime(data.start_time);
+			startTimeRef = parseDateTime(data.start_time);
 			if (startTimeRef) {
 				updateDuration();
 				if (!durationTimer) {
@@ -863,7 +930,7 @@
 	}
 
 	function fetchData() {
-		if (pollInFlight || saveInFlight) {
+		if (pollInFlight || saveInFlight || restartInFlight) {
 			schedulePoll(pollInterval);
 			return;
 		}
@@ -888,8 +955,13 @@
 		xhr.send();
 	}
 
+	function requestResync() {
+		refreshAllDirtyStates();
+		fetchData();
+	}
+
 	function submitConfig(requestSource, onSuccess, onFailure) {
-		if (saveInFlight) {
+		if (saveInFlight || restartInFlight) {
 			return;
 		}
 
@@ -933,6 +1005,49 @@
 		xhr.send(buildPayload(enabled, requestSource));
 	}
 
+	function submitRestart(onSuccess, onFailure) {
+		if (saveInFlight || restartInFlight) {
+			return;
+		}
+
+		var xhr = new XMLHttpRequest();
+
+		restartInFlight = true;
+		setControlsDisabled(true);
+		setMessage('正在重新启动监控服务...', '');
+
+		xhr.open('POST', restartUrl, true);
+		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		xhr.onload = function() {
+			var response = null;
+
+			if (xhr.status === 200) {
+				try {
+					response = JSON.parse(xhr.responseText);
+				} catch (e) {}
+			}
+
+			if (response && response.success) {
+				if (onSuccess) {
+					onSuccess();
+				}
+			} else if (onFailure) {
+				onFailure(response && response.message ? response.message : '');
+			}
+		};
+		xhr.onerror = function() {
+			if (onFailure) {
+				onFailure('');
+			}
+		};
+		xhr.onloadend = function() {
+			restartInFlight = false;
+			setControlsDisabled(false);
+			fetchData();
+		};
+		xhr.send('token=' + encodeURIComponent(formToken));
+	}
+
 	window.toggleService = function() {
 		var enableSwitch = $('enableSwitch');
 		var previousChecked = !enableSwitch.checked;
@@ -972,12 +1087,41 @@
 		);
 	};
 
+	window.restartService = function() {
+		submitRestart(
+			function() {
+				setMessage('已触发服务重启，正在等待最新监控结果。', 'success');
+			},
+			function(message) {
+				setMessage(message || '重启服务失败，请稍后重试。', 'error');
+			}
+		);
+	};
+
 	$('domesticInput').addEventListener('input', function() {
 		inputDirty.domestic = true;
 	});
 
+	$('domesticInput').addEventListener('blur', function() {
+		refreshDirtyState('domestic', 'domesticInput');
+	});
+
 	$('foreignInput').addEventListener('input', function() {
 		inputDirty.foreign = true;
+	});
+
+	$('foreignInput').addEventListener('blur', function() {
+		refreshDirtyState('foreign', 'foreignInput');
+	});
+
+	document.addEventListener('visibilitychange', function() {
+		if (!document.hidden) {
+			requestResync();
+		}
+	});
+
+	window.addEventListener('focus', function() {
+		requestResync();
 	});
 
 	fetchData();

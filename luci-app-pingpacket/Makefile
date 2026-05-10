@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-pingpacket
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=1
+PKG_RELEASE:=3
 PKG_LICENSE:=Apache-2.0
 
 include $(INCLUDE_DIR)/package.mk
@@ -33,6 +33,7 @@ define Package/$(PKG_NAME)/install
 
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/pingpacket
 	$(INSTALL_DATA) ./luasrc/view/pingpacket/status.htm $(1)/usr/lib/lua/luci/view/pingpacket/status.htm
+	$(INSTALL_DATA) ./luasrc/view/pingpacket/logs.htm $(1)/usr/lib/lua/luci/view/pingpacket/logs.htm
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_DATA) ./root/etc/config/pingpacket $(1)/etc/config/pingpacket

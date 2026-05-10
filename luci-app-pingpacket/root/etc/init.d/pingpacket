@@ -8,6 +8,24 @@ PROG=/usr/bin/pingpacket.sh
 RUN_DIR=/var/run/pingpacket
 STATUS_FILE=/tmp/pingpacket_status.json
 CONFIG_FILE=$RUN_DIR/config
+LOG_FILE=/tmp/pingpacket.log
+LOG_MAX_LINES=500
+
+log_rotate() {
+	[ -f "$LOG_FILE" ] || return 0
+	tail -n "$LOG_MAX_LINES" "$LOG_FILE" > "${LOG_FILE}.tmp" 2>/dev/null && \
+		mv -f "${LOG_FILE}.tmp" "$LOG_FILE"
+}
+
+log_event() {
+	local event_type="$1"
+	local message="$2"
+	local timestamp
+
+	timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+	printf '[%s] [%s] %s\n' "$timestamp" "$event_type" "$message" >> "$LOG_FILE"
+	log_rotate
+}
 
 start_service() {
 	local enabled domestic foreign
@@ -25,6 +43,8 @@ start_service() {
 	printf '%s\n' "$domestic" > "$CONFIG_FILE"
 	printf '%s\n' "$foreign" >> "$CONFIG_FILE"
 
+	log_event "启动" "监控服务已启动，国内目标：${domestic:-未配置}，国外目标：${foreign:-未配置}"
+
 	procd_open_instance
 	procd_set_param command /bin/sh "$PROG"
 	procd_set_param respawn 3600 10 5
@@ -34,6 +54,10 @@ start_service() {
 }
 
 stop_service() {
+	if [ -d "$RUN_DIR" ] || [ -f "$STATUS_FILE" ]; then
+		log_event "停止" "监控服务已停止"
+	fi
+
 	rm -rf "$RUN_DIR"
 	rm -f "$STATUS_FILE"
 }
