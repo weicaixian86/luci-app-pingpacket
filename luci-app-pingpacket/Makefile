@@ -34,7 +34,18 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/pingpacket
 	$(INSTALL_DATA) ./luasrc/view/pingpacket/status.htm $(1)/usr/lib/lua/luci/view/pingpacket/status.htm
 
-	$(CP) ./root/* $(1)/
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_DATA) ./root/etc/config/pingpacket $(1)/etc/config/pingpacket
+
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./root/etc/init.d/pingpacket $(1)/etc/init.d/pingpacket
+
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) ./root/usr/bin/pingpacket.sh $(1)/usr/bin/pingpacket.sh
+
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
+	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-pingpacket.json \
+		$(1)/usr/share/rpcd/acl.d/luci-app-pingpacket.json
 endef
 
 define Package/$(PKG_NAME)/postinst
