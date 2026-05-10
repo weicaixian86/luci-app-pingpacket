@@ -114,6 +114,7 @@ jobs:
           echo "src-link pingpacket $GITHUB_WORKSPACE" >> feeds.conf
           ./scripts/feeds update pingpacket
           ./scripts/feeds install -p pingpacket -a
+          make defconfig
 
       - name: Build package
         shell: bash
