@@ -57,4 +57,12 @@ define Package/$(PKG_NAME)/postinst
 }
 endef
 
+define Package/$(PKG_NAME)/prerm
+[ -n "$${IPKG_INSTROOT}" ] || { \
+	[ -f /etc/init.d/pingpacket ] && /bin/sh /etc/init.d/pingpacket disable 2>/dev/null; \
+	[ -f /etc/init.d/pingpacket ] && /bin/sh /etc/init.d/pingpacket stop 2>/dev/null; \
+	exit 0; \
+}
+endef
+
 $(eval $(call BuildPackage,$(PKG_NAME)))
