@@ -104,24 +104,16 @@ jobs:
           sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
           grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
 
-      - name: Link package into SDK
+      - name: Register package as feed
         shell: bash
         run: |
           test -n "${APP_SOURCE_DIR}"
           test -d "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}"
           test -f "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
           cd sdk
-          mkdir -p package/custom
-          rm -rf "package/custom/${PACKAGE_NAME}"
-          cp -a "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}" "package/custom/${PACKAGE_NAME}"
-          test -f "package/custom/${PACKAGE_NAME}/Makefile"
-
-      - name: Generate defconfig
-        shell: bash
-        run: |
-          cd sdk
-          echo "CONFIG_PACKAGE_${PACKAGE_NAME}=m" >> .config
-          make defconfig
+          echo "src-link pingpacket $GITHUB_WORKSPACE" >> feeds.conf
+          ./scripts/feeds update pingpacket
+          ./scripts/feeds install -p pingpacket -a
 
       - name: Build package
         shell: bash

@@ -81,7 +81,7 @@ function action_save_config()
 	if enabled == "1" then
 		if domestic == "" and foreign == "" then
 			success = false
-			msg = "Please configure at least one target."
+			msg = _("Please configure at least one target.")
 		else
 			sys.call("/etc/init.d/pingpacket restart")
 		end
