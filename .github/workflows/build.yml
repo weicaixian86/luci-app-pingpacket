@@ -82,17 +82,14 @@ jobs:
             exit 1
           fi
           LOCAL_FEED_NAME="pingpacket_local"
-          LOCAL_FEED_DIR="$GITHUB_WORKSPACE/local-feed"
           SDK_PACKAGE_DIR="$GITHUB_WORKSPACE/sdk/package/feeds/${LOCAL_FEED_NAME}/${PACKAGE_NAME}"
           PACKAGE_BUILD_TARGET="package/feeds/${LOCAL_FEED_NAME}/${PACKAGE_NAME}/compile"
           echo "APP_SOURCE_DIR=$APP_SOURCE_DIR" >> "$GITHUB_ENV"
           echo "LOCAL_FEED_NAME=$LOCAL_FEED_NAME" >> "$GITHUB_ENV"
-          echo "LOCAL_FEED_DIR=$LOCAL_FEED_DIR" >> "$GITHUB_ENV"
           echo "SDK_PACKAGE_DIR=$SDK_PACKAGE_DIR" >> "$GITHUB_ENV"
           echo "PACKAGE_BUILD_TARGET=$PACKAGE_BUILD_TARGET" >> "$GITHUB_ENV"
           echo "Resolved APP_SOURCE_DIR=$APP_SOURCE_DIR"
           echo "Resolved LOCAL_FEED_NAME=$LOCAL_FEED_NAME"
-          echo "Resolved LOCAL_FEED_DIR=$LOCAL_FEED_DIR"
           echo "Resolved SDK_PACKAGE_DIR=$SDK_PACKAGE_DIR"
           echo "Resolved PACKAGE_BUILD_TARGET=$PACKAGE_BUILD_TARGET"
 
@@ -109,33 +106,29 @@ jobs:
           sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
           grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
 
-      - name: Stage package into local feed
+      - name: Stage package into SDK feed path
         shell: bash
         run: |
-          rm -rf "$LOCAL_FEED_DIR"
-          mkdir -p "$LOCAL_FEED_DIR/$PACKAGE_NAME"
+          rm -rf "$SDK_PACKAGE_DIR"
+          mkdir -p "$SDK_PACKAGE_DIR"
           rsync -a \
             --delete \
             --exclude '.git' \
             --exclude '.github' \
-            --exclude 'local-feed' \
             --exclude 'sdk' \
             --exclude 'output' \
-            "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/" "$LOCAL_FEED_DIR/$PACKAGE_NAME/"
-          test -f "$LOCAL_FEED_DIR/$PACKAGE_NAME/Makefile"
-          find "$LOCAL_FEED_DIR" -maxdepth 3 -type f -name Makefile | sort
-          grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$LOCAL_FEED_DIR/$PACKAGE_NAME/Makefile"
+            "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/" "$SDK_PACKAGE_DIR/"
+          test -f "$SDK_PACKAGE_DIR/Makefile"
+          find "$GITHUB_WORKSPACE/sdk/package/feeds" -maxdepth 4 -path "*/${PACKAGE_NAME}/Makefile" | sort
+          grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$SDK_PACKAGE_DIR/Makefile"
 
       - name: Prepare feeds
         shell: bash
         run: |
           cd sdk
-          cp feeds.conf.default feeds.conf
-          echo "src-link $LOCAL_FEED_NAME $LOCAL_FEED_DIR" >> feeds.conf
+          test -f "$SDK_PACKAGE_DIR/Makefile"
           ./scripts/feeds update luci
-          ./scripts/feeds update "$LOCAL_FEED_NAME"
           ./scripts/feeds install -p luci luci-base
-          ./scripts/feeds install -p "$LOCAL_FEED_NAME" "$PACKAGE_NAME"
           test -f "$SDK_PACKAGE_DIR/Makefile"
           find package/feeds -maxdepth 4 -path "*/${PACKAGE_NAME}/Makefile" | sort
 
@@ -145,6 +138,12 @@ jobs:
           set -o pipefail
           cd sdk
           make defconfig
+          if ! make -rqp 2>/dev/null | grep -Fq "${PACKAGE_BUILD_TARGET}:"; then
+            echo "Unable to resolve build target: $PACKAGE_BUILD_TARGET"
+            find package/feeds -maxdepth 4 -path "*/${PACKAGE_NAME}/Makefile" | sort || true
+            make -rqp 2>/dev/null | grep -F "${PACKAGE_NAME}" | head -n 50 || true
+            exit 1
+          fi
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
           make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee build-${PACKAGE_NAME}.log
 
