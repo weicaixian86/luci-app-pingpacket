@@ -12,6 +12,18 @@ domestic_fail_count=0
 foreign_fail_count=0
 domestic_fault_open=0
 foreign_fault_open=0
+domestic_total_samples=0
+foreign_total_samples=0
+domestic_success_count=0
+foreign_success_count=0
+domestic_loss_count=0
+foreign_loss_count=0
+domestic_rtt_sum="0"
+foreign_rtt_sum="0"
+domestic_min_rtt=""
+foreign_min_rtt=""
+domestic_max_rtt=""
+foreign_max_rtt=""
 
 log_rotate() {
 	[ -f "$LOG_FILE" ] || return 0
@@ -56,7 +68,6 @@ date '+%Y-%m-%d %H:%M:%S' > "$START_TIME_FILE"
 do_ping() {
 	local target="$1"
 	local name="$2"
-	local times_file="$RUN_DIR/${name}_times"
 	local result_file="$RUN_DIR/${name}_last_result"
 	local result
 	local rtt
@@ -64,15 +75,10 @@ do_ping() {
 	result="$(ping -c 1 -W 2 "$target" 2>/dev/null)"
 	if echo "$result" | grep -q "bytes from"; then
 		rtt="$(echo "$result" | sed -n 's/.*time=\([0-9.]*\).*/\1/p')"
-		echo "$rtt" >> "$times_file"
 		printf '1\n%s\n' "$rtt" > "$result_file"
 	else
-		echo "L" >> "$times_file"
 		printf '0\n\n' > "$result_file"
 	fi
-
-	tail -n 120 "$times_file" > "$times_file.tmp" 2>/dev/null
-	mv "$times_file.tmp" "$times_file" 2>/dev/null
 }
 
 get_target_state() {
@@ -157,35 +163,130 @@ update_target_faults() {
 }
 
 calc_stats() {
-	local file="$1"
+	local name="$1"
+	local total_samples=0
+	local success_count=0
+	local loss_count=0
+	local rtt_sum="0"
+	local min_rtt=""
+	local max_rtt=""
+	local avg="0.0"
+	local min="0.0"
+	local max="0.0"
+	local loss_rate="0.0"
 
-	if [ ! -f "$file" ]; then
-		printf '{"avg":"0.0","min":"0.0","max":"0.0","loss_rate":"0.0","count":0,"samples":0}'
-		return
+	case "$name" in
+		domestic)
+			total_samples="$domestic_total_samples"
+			success_count="$domestic_success_count"
+			loss_count="$domestic_loss_count"
+			rtt_sum="$domestic_rtt_sum"
+			min_rtt="$domestic_min_rtt"
+			max_rtt="$domestic_max_rtt"
+			;;
+		foreign)
+			total_samples="$foreign_total_samples"
+			success_count="$foreign_success_count"
+			loss_count="$foreign_loss_count"
+			rtt_sum="$foreign_rtt_sum"
+			min_rtt="$foreign_min_rtt"
+			max_rtt="$foreign_max_rtt"
+			;;
+	esac
+
+	if [ "$success_count" -gt 0 ]; then
+		avg="$(awk -v sum="$rtt_sum" -v count="$success_count" 'BEGIN { printf "%.1f", (sum + 0) / count }')"
+		min="$(awk -v value="${min_rtt:-0}" 'BEGIN { printf "%.1f", value + 0 }')"
+		max="$(awk -v value="${max_rtt:-0}" 'BEGIN { printf "%.1f", value + 0 }')"
 	fi
 
-	awk '
-	{
-		total++
-		if ($1 == "L") {
-			loss++
-			next
-		}
+	if [ "$total_samples" -gt 0 ]; then
+		loss_rate="$(awk -v loss="$loss_count" -v total="$total_samples" 'BEGIN { printf "%.1f", loss * 100.0 / total }')"
+	fi
 
-		sum += $1
-		count++
-		if (min == "" || ($1 + 0) < (min + 0)) min = $1
-		if (max == "" || ($1 + 0) > (max + 0)) max = $1
-	}
-	END {
-		avg = count > 0 ? sum / count : 0
-		lr = total > 0 ? loss * 100.0 / total : 0
-		if (min == "") min = 0
-		if (max == "") max = 0
+	printf '{"avg":"%s","min":"%s","max":"%s","loss_rate":"%s","count":%d,"samples":%d}' \
+		"$avg" "$min" "$max" "$loss_rate" "$success_count" "$total_samples"
+}
 
-		printf "{\"avg\":\"%.1f\",\"min\":\"%.1f\",\"max\":\"%.1f\",\"loss_rate\":\"%.1f\",\"count\":%d,\"samples\":%d}\n",
-			avg, min, max, lr, count, total
-	}' "$file"
+update_cumulative_stats() {
+	local name="$1"
+	local target="$2"
+	local result_file="$RUN_DIR/${name}_last_result"
+	local success="0"
+	local rtt=""
+	local total_samples=0
+	local success_count=0
+	local loss_count=0
+	local rtt_sum="0"
+	local min_rtt=""
+	local max_rtt=""
+
+	[ -n "$target" ] || return 0
+
+	case "$name" in
+		domestic)
+			total_samples="$domestic_total_samples"
+			success_count="$domestic_success_count"
+			loss_count="$domestic_loss_count"
+			rtt_sum="$domestic_rtt_sum"
+			min_rtt="$domestic_min_rtt"
+			max_rtt="$domestic_max_rtt"
+			;;
+		foreign)
+			total_samples="$foreign_total_samples"
+			success_count="$foreign_success_count"
+			loss_count="$foreign_loss_count"
+			rtt_sum="$foreign_rtt_sum"
+			min_rtt="$foreign_min_rtt"
+			max_rtt="$foreign_max_rtt"
+			;;
+	esac
+
+	total_samples=$((total_samples + 1))
+
+	if [ -f "$result_file" ]; then
+		success="$(sed -n '1p' "$result_file" 2>/dev/null)"
+		rtt="$(sed -n '2p' "$result_file" 2>/dev/null)"
+	fi
+
+	if [ "$success" = "1" ]; then
+		rtt="${rtt:-0}"
+		success_count=$((success_count + 1))
+		rtt_sum="$(awk -v sum="$rtt_sum" -v value="$rtt" 'BEGIN { printf "%.3f", (sum + 0) + (value + 0) }')"
+
+		if [ -z "$min_rtt" ]; then
+			min_rtt="$rtt"
+		else
+			min_rtt="$(awk -v current="$min_rtt" -v value="$rtt" 'BEGIN { printf "%.3f", ((value + 0) < (current + 0)) ? (value + 0) : (current + 0) }')"
+		fi
+
+		if [ -z "$max_rtt" ]; then
+			max_rtt="$rtt"
+		else
+			max_rtt="$(awk -v current="$max_rtt" -v value="$rtt" 'BEGIN { printf "%.3f", ((value + 0) > (current + 0)) ? (value + 0) : (current + 0) }')"
+		fi
+	else
+		loss_count=$((loss_count + 1))
+	fi
+
+	case "$name" in
+		domestic)
+			domestic_total_samples="$total_samples"
+			domestic_success_count="$success_count"
+			domestic_loss_count="$loss_count"
+			domestic_rtt_sum="$rtt_sum"
+			domestic_min_rtt="$min_rtt"
+			domestic_max_rtt="$max_rtt"
+			;;
+		foreign)
+			foreign_total_samples="$total_samples"
+			foreign_success_count="$success_count"
+			foreign_loss_count="$loss_count"
+			foreign_rtt_sum="$rtt_sum"
+			foreign_min_rtt="$min_rtt"
+			foreign_max_rtt="$max_rtt"
+			;;
+	esac
 }
 
 while true; do
@@ -215,9 +316,11 @@ while true; do
 
 	update_target_faults "domestic" "国内" "$DOMESTIC_TARGET"
 	update_target_faults "foreign" "国外" "$FOREIGN_TARGET"
+	update_cumulative_stats "domestic" "$DOMESTIC_TARGET"
+	update_cumulative_stats "foreign" "$FOREIGN_TARGET"
 
-	DOMESTIC_STATS="$(calc_stats "$RUN_DIR/domestic_times")"
-	FOREIGN_STATS="$(calc_stats "$RUN_DIR/foreign_times")"
+	DOMESTIC_STATS="$(calc_stats "domestic")"
+	FOREIGN_STATS="$(calc_stats "foreign")"
 
 	printf '{"start_time":"%s","updated_at":"%s","domestic":%s,"foreign":%s}\n' \
 		"$START_TIME" "$UPDATED_AT" "$DOMESTIC_STATS" "$FOREIGN_STATS" > "$STATUS_TMP" && \
