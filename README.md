@@ -1,5 +1,29 @@
 # luci-app-pingpacket
 
+## 界面截图
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="jpg/1.png" alt="Ping丢包监控总览" width="100%">
+      <br>
+      <sub>监控总览</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="jpg/2.png" alt="Ping丢包监控设置" width="100%">
+      <br>
+      <sub>监控设置</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="jpg/3.png" alt="Ping丢包监控运行日志" width="78%">
+      <br>
+      <sub>运行日志</sub>
+    </td>
+  </tr>
+</table>
+
 `luci-app-pingpacket` 是一个面向 OpenWrt 的 LuCI 状态监控插件，用于持续检测国内与国外目标的连通性、延迟和丢包情况，并提供运行日志、服务控制与简单排障能力。
 
 ## 适用平台
