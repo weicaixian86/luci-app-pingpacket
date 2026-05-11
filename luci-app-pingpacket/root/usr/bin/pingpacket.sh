@@ -4,7 +4,6 @@ STATUS_FILE="/tmp/pingpacket_status.json"
 STATUS_TMP="${STATUS_FILE}.tmp"
 LOG_FILE="/tmp/pingpacket.log"
 LOG_MAX_LINES=500
-FAIL_THRESHOLD=3
 RUN_DIR="/var/run/pingpacket"
 START_TIME_FILE="$RUN_DIR/start_time"
 child_pids=""
@@ -154,10 +153,8 @@ update_target_faults() {
 	fi
 
 	fail_count=$((fail_count + 1))
-	if [ "$fail_count" -ge "$FAIL_THRESHOLD" ] && [ "$fault_open" != "1" ]; then
-		log_event "故障" "$label" "目标 ${target} 连续 ${FAIL_THRESHOLD} 次探测失败"
-		fault_open=1
-	fi
+	log_event "丢包" "$label" "目标 ${target} 本次探测失败（连续第 ${fail_count} 次）"
+	fault_open=1
 
 	set_target_state "$name" "$fail_count" "$fault_open"
 }
