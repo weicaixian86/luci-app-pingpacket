@@ -54,7 +54,7 @@ start_service() {
 	config_get foreign config foreign_target ""
 	config_get proxy_type config foreign_proxy_type "socks5"
 	config_get proxy_host config foreign_proxy_host "127.0.0.1"
-	config_get proxy_port config foreign_proxy_port ""
+	config_get proxy_port config foreign_proxy_port "7891"
 
 	[ "$enabled" = "1" ] || return 0
 	[ -n "$domestic" ] || [ -n "$foreign" ] || return 0

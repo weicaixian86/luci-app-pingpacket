@@ -392,7 +392,7 @@ while true; do
 	FOREIGN_TARGET=""
 	FOREIGN_PROXY_TYPE="socks5"
 	FOREIGN_PROXY_HOST="127.0.0.1"
-	FOREIGN_PROXY_PORT=""
+	FOREIGN_PROXY_PORT="7891"
 
 	if [ -f "$RUN_DIR/config" ]; then
 		DOMESTIC_TARGET="$(sed -n '1p' "$RUN_DIR/config")"
@@ -404,6 +404,7 @@ while true; do
 
 	[ -n "$FOREIGN_PROXY_TYPE" ] || FOREIGN_PROXY_TYPE="socks5"
 	[ -n "$FOREIGN_PROXY_HOST" ] || FOREIGN_PROXY_HOST="127.0.0.1"
+	[ -n "$FOREIGN_PROXY_PORT" ] || FOREIGN_PROXY_PORT="7891"
 
 	child_pids=""
 	if [ -n "$DOMESTIC_TARGET" ]; then

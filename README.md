@@ -92,6 +92,8 @@
 
 - 国内：`www.baidu.com`
 - 国外：`www.google.com`
+- 国外代理类型：`socks5`
+- 国外代理端口：`7891`
 
 默认 UCI 结构如下：
 
@@ -102,7 +104,7 @@ config pingpacket 'config'
 	option foreign_target ''
 	option foreign_proxy_type 'socks5'
 	option foreign_proxy_host '127.0.0.1'
-	option foreign_proxy_port ''
+	option foreign_proxy_port '7891'
 ```
 
 ## 依赖
