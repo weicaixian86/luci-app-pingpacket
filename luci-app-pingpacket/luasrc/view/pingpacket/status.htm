@@ -396,7 +396,7 @@
 
 .pp-proxy-grid {
 	display: grid;
-	grid-template-columns: 160px repeat(2, minmax(0, 1fr));
+	grid-template-columns: 160px minmax(0, 1fr);
 	gap: 16px;
 	margin-bottom: 16px;
 }
@@ -719,8 +719,8 @@
 	<div class="pp-panel">
 		<div class="pp-panel-head">
 			<div>
-				<h3 class="pp-panel-title">监控设置</h3>
-				<div class="pp-panel-note">国外目标会通过代理发起 `curl` 请求统计延迟和丢包。若你只填写国外目标，则必须同时填写代理类型、代理主机和代理端口。未写协议的国外目标会自动按 `https://` 处理。</div>
+			<h3 class="pp-panel-title">监控设置</h3>
+			<div class="pp-panel-note">国外目标会通过本机代理发起 `curl` 请求统计延迟和丢包。代理主机固定为当前 OpenWrt 本机 `127.0.0.1`，你只需要设置代理类型和代理端口。未写协议的国外目标会自动按 `https://` 处理。</div>
 			</div>
 		</div>
 
@@ -751,15 +751,9 @@
 			</div>
 
 			<div class="pp-field">
-				<label for="proxyHostInput">代理主机</label>
-				<input class="pp-input" type="text" id="proxyHostInput" placeholder="例如：127.0.0.1">
-				<div class="pp-hint">只有填写国外目标时才要求必填。</div>
-			</div>
-
-			<div class="pp-field">
 				<label for="proxyPortInput">代理端口</label>
 				<input class="pp-input" type="text" id="proxyPortInput" inputmode="numeric" placeholder="例如：7890">
-				<div class="pp-hint">必须是 1 到 65535 的数字。</div>
+				<div class="pp-hint">Openclash HTTP端口7890 SOCKS5端口7891，Sing-box HTTP端口8080 SOCKS5端口1080，具体端口自行查询代理插件，必须是 1 到 65535 的数字。</div>
 			</div>
 		</div>
 
@@ -793,14 +787,12 @@
 		domestic: false,
 		foreign: false,
 		proxyType: false,
-		proxyHost: false,
 		proxyPort: false
 	};
 	var lastServerValues = {
 		domestic: '',
 		foreign: '',
 		proxyType: 'socks5',
-		proxyHost: '',
 		proxyPort: ''
 	};
 
@@ -857,7 +849,6 @@
 		$('domesticInput').disabled = disabled;
 		$('foreignInput').disabled = disabled;
 		$('proxyTypeInput').disabled = disabled;
-		$('proxyHostInput').disabled = disabled;
 		$('proxyPortInput').disabled = disabled;
 	}
 
@@ -873,15 +864,14 @@
 
 	function validateInputs() {
 		var foreign = $('foreignInput').value.trim();
-		var proxyHost = $('proxyHostInput').value.trim();
 		var proxyPort = $('proxyPortInput').value.trim();
 
 		if (!hasAnyTarget()) {
 			return '请至少填写一个监控目标。';
 		}
 
-		if (foreign !== '' && (proxyHost === '' || proxyPort === '')) {
-			return '已填写国外目标时，请同时填写代理主机和端口。';
+		if (foreign !== '' && proxyPort === '') {
+			return '已填写国外目标时，请同时填写代理端口。';
 		}
 
 		if (proxyPort !== '' && !/^\d+$/.test(proxyPort)) {
@@ -902,7 +892,6 @@
 		inputDirty.domestic = false;
 		inputDirty.foreign = false;
 		inputDirty.proxyType = false;
-		inputDirty.proxyHost = false;
 		inputDirty.proxyPort = false;
 	}
 
@@ -918,7 +907,6 @@
 		refreshDirtyState('domestic', 'domesticInput');
 		refreshDirtyState('foreign', 'foreignInput');
 		refreshDirtyState('proxyType', 'proxyTypeInput');
-		refreshDirtyState('proxyHost', 'proxyHostInput');
 		refreshDirtyState('proxyPort', 'proxyPortInput');
 	}
 
@@ -1013,12 +1001,12 @@
 		return numeric.toFixed(1) + '%';
 	}
 
-	function buildProxySummary(type, host, port) {
-		if (!host || !port) {
-		return '探测方式：代理 curl（代理未完整配置）';
+	function buildProxySummary(type, port) {
+		if (!port) {
+			return '探测方式：代理 curl（本机代理端口未配置）';
 		}
 
-		return '探测方式：代理 curl，经由 ' + type + '://' + host + ':' + port;
+		return '探测方式：代理 curl，经由本机 ' + type.toUpperCase() + ' 端口 ' + port;
 	}
 
 	function buildPayload(enabled, requestSource) {
@@ -1028,7 +1016,6 @@
 			'&domestic_target=' + encodeURIComponent($('domesticInput').value.trim()) +
 			'&foreign_target=' + encodeURIComponent($('foreignInput').value.trim()) +
 			'&foreign_proxy_type=' + encodeURIComponent($('proxyTypeInput').value.trim()) +
-			'&foreign_proxy_host=' + encodeURIComponent($('proxyHostInput').value.trim()) +
 			'&foreign_proxy_port=' + encodeURIComponent($('proxyPortInput').value.trim());
 	}
 
@@ -1038,7 +1025,6 @@
 		var updatedTime = parseDateTime(data.updated_at || '');
 		var stale = false;
 		var proxyType = (data.foreign_proxy_type || 'socks5').trim() || 'socks5';
-		var proxyHost = (data.foreign_proxy_host || '').trim();
 		var proxyPort = (data.foreign_proxy_port || '').trim();
 
 		if (enabled && data.service_running && serverTime && updatedTime) {
@@ -1051,18 +1037,16 @@
 		lastServerValues.domestic = (data.domestic_target || '').trim();
 		lastServerValues.foreign = (data.foreign_target || '').trim();
 		lastServerValues.proxyType = proxyType;
-		lastServerValues.proxyHost = proxyHost;
 		lastServerValues.proxyPort = proxyPort;
 
 		syncFieldValue('domesticInput', data.domestic_target || '', 'domestic');
 		syncFieldValue('foreignInput', data.foreign_target || '', 'foreign');
 		syncFieldValue('proxyTypeInput', proxyType, 'proxyType');
-		syncFieldValue('proxyHostInput', proxyHost, 'proxyHost');
 		syncFieldValue('proxyPortInput', proxyPort, 'proxyPort');
 
 		setTarget('domesticTarget', data.domestic_target || '');
 		setTarget('foreignTarget', data.foreign_target || '');
-		$('foreignProxySummary').textContent = buildProxySummary(proxyType, proxyHost, proxyPort);
+		$('foreignProxySummary').textContent = buildProxySummary(proxyType, proxyPort);
 
 		setStat('domestic', data.domestic || {});
 		setStat('foreign', data.foreign || {});
@@ -1288,14 +1272,6 @@
 
 	$('proxyTypeInput').addEventListener('blur', function() {
 		refreshDirtyState('proxyType', 'proxyTypeInput');
-	});
-
-	$('proxyHostInput').addEventListener('input', function() {
-		inputDirty.proxyHost = true;
-	});
-
-	$('proxyHostInput').addEventListener('blur', function() {
-		refreshDirtyState('proxyHost', 'proxyHostInput');
 	});
 
 	$('proxyPortInput').addEventListener('input', function() {

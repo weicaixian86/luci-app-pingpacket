@@ -53,7 +53,7 @@ ensure_config_file() { \
 		"	option domestic_target ''" \
 		"	option foreign_target ''" \
 		"	option foreign_proxy_type 'socks5'" \
-		"	option foreign_proxy_host ''" \
+		"	option foreign_proxy_host '127.0.0.1'" \
 		"	option foreign_proxy_port ''" \
 		> "$$target"; \
 }; \
@@ -77,6 +77,10 @@ changed=0; \
 	fi; \
 	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_type)" ]; then \
 		uci set pingpacket.config.foreign_proxy_type='socks5'; \
+		changed=1; \
+	fi; \
+	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_host)" ]; then \
+		uci set pingpacket.config.foreign_proxy_host='127.0.0.1'; \
 		changed=1; \
 	fi; \
 	[ "$$changed" = "1" ] && uci commit pingpacket; \

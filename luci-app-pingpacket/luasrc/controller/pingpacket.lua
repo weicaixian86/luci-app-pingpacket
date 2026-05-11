@@ -2,6 +2,7 @@ module("luci.controller.pingpacket", package.seeall)
 
 local LOG_FILE = "/tmp/pingpacket.log"
 local CPU_STATE_FILE = "/tmp/pingpacket_cpu_state"
+local DEFAULT_PROXY_HOST = "127.0.0.1"
 local VALID_PROXY_TYPES = {
 	http = true,
 	https = true,
@@ -46,6 +47,16 @@ local function normalize_proxy_port(value)
 	return tostring(port)
 end
 
+local function normalize_proxy_host(value)
+	value = trim(value)
+
+	if value ~= "" then
+		return value
+	end
+
+	return DEFAULT_PROXY_HOST
+end
+
 local function write_json(payload)
 	local http = require("luci.http")
 	local jsonc = require("luci.jsonc")
@@ -82,14 +93,13 @@ end
 
 local function has_valid_foreign_proxy(uci)
 	local foreign_target = trim(uci:get("pingpacket", "config", "foreign_target"))
-	local proxy_host = trim(uci:get("pingpacket", "config", "foreign_proxy_host"))
 	local proxy_port = trim(uci:get("pingpacket", "config", "foreign_proxy_port"))
 
 	if foreign_target == "" then
 		return true
 	end
 
-	return proxy_host ~= "" and proxy_port:match("^%d+$") and tonumber(proxy_port) and tonumber(proxy_port) >= 1 and tonumber(proxy_port) <= 65535
+	return proxy_port:match("^%d+$") and tonumber(proxy_port) and tonumber(proxy_port) >= 1 and tonumber(proxy_port) <= 65535
 end
 
 local function read_file_content(path)
@@ -256,13 +266,13 @@ local function read_system_metrics()
 	}
 end
 
-local function validate_config(request_source, enabled, domestic, foreign, proxy_host, proxy_port)
+local function validate_config(request_source, enabled, domestic, foreign, proxy_port)
 	if should_require_target(request_source, enabled) and domestic == "" and foreign == "" then
 		return false, "请至少填写一个监控目标。"
 	end
 
-	if foreign ~= "" and (proxy_host == "" or proxy_port == "") then
-		return false, "已填写国外目标时，请同时填写代理主机和端口。"
+	if foreign ~= "" and proxy_port == "" then
+		return false, "已填写国外目标时，请同时填写代理端口。"
 	end
 
 	return true, ""
@@ -301,7 +311,7 @@ function action_get_data()
 	local domestic_target = trim(uci:get("pingpacket", "config", "domestic_target"))
 	local foreign_target = trim(uci:get("pingpacket", "config", "foreign_target"))
 	local foreign_proxy_type = normalize_proxy_type(uci:get("pingpacket", "config", "foreign_proxy_type"))
-	local foreign_proxy_host = trim(uci:get("pingpacket", "config", "foreign_proxy_host"))
+	local foreign_proxy_host = normalize_proxy_host(uci:get("pingpacket", "config", "foreign_proxy_host"))
 	local foreign_proxy_port = trim(uci:get("pingpacket", "config", "foreign_proxy_port"))
 
 	local result = {
@@ -384,7 +394,7 @@ function action_save_config()
 	local domestic = trim(http.formvalue("domestic_target"))
 	local foreign = trim(http.formvalue("foreign_target"))
 	local proxy_type = normalize_proxy_type(http.formvalue("foreign_proxy_type"))
-	local proxy_host = trim(http.formvalue("foreign_proxy_host"))
+	local proxy_host = DEFAULT_PROXY_HOST
 	local proxy_port = normalize_proxy_port(http.formvalue("foreign_proxy_port"))
 	local request_source = trim(http.formvalue("request_source"))
 
@@ -396,7 +406,7 @@ function action_save_config()
 		return
 	end
 
-	local valid, message = validate_config(request_source, enabled, domestic, foreign, proxy_host, proxy_port)
+	local valid, message = validate_config(request_source, enabled, domestic, foreign, proxy_port)
 	if not valid then
 		write_json({
 			success = false,
@@ -453,7 +463,7 @@ function action_restart_service()
 	if not has_valid_foreign_proxy(uci) then
 		write_json({
 			success = false,
-			message = "国外目标已填写，但代理主机或端口无效。"
+			message = "国外目标已填写，但代理端口无效。"
 		})
 		return
 	end

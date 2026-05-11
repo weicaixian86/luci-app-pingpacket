@@ -103,7 +103,7 @@ do_ping() {
 do_proxy_curl() {
 	local target="$1"
 	local proxy_type="$2"
-	local proxy_host="$3"
+	local proxy_host="${3:-127.0.0.1}"
 	local proxy_port="$4"
 	local name="$5"
 	local result_file="$RUN_DIR/${name}_last_result"
@@ -120,8 +120,8 @@ do_proxy_curl() {
 		return 0
 	fi
 
-	if [ -z "$proxy_host" ] || [ -z "$proxy_port" ]; then
-		write_result_file "$result_file" "0" "" "代理主机或端口未配置"
+	if [ -z "$proxy_port" ]; then
+		write_result_file "$result_file" "0" "" "代理端口未配置"
 		return 0
 	fi
 
@@ -391,7 +391,7 @@ while true; do
 	DOMESTIC_TARGET=""
 	FOREIGN_TARGET=""
 	FOREIGN_PROXY_TYPE="socks5"
-	FOREIGN_PROXY_HOST=""
+	FOREIGN_PROXY_HOST="127.0.0.1"
 	FOREIGN_PROXY_PORT=""
 
 	if [ -f "$RUN_DIR/config" ]; then
@@ -403,6 +403,7 @@ while true; do
 	fi
 
 	[ -n "$FOREIGN_PROXY_TYPE" ] || FOREIGN_PROXY_TYPE="socks5"
+	[ -n "$FOREIGN_PROXY_HOST" ] || FOREIGN_PROXY_HOST="127.0.0.1"
 
 	child_pids=""
 	if [ -n "$DOMESTIC_TARGET" ]; then
