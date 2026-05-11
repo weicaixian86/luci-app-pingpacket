@@ -110,7 +110,9 @@ do_proxy_curl() {
 	local error_file="$RUN_DIR/${name}_curl_error"
 	local url
 	local proxy_addr
-	local time_total
+	local curl_result
+	local http_code
+	local time_pretransfer
 	local rtt_ms
 	local detail
 	local rc
@@ -130,43 +132,46 @@ do_proxy_curl() {
 
 	case "$proxy_type" in
 		http|https)
-			time_total="$(
-				curl -k -L -sS --fail --noproxy "" \
+			curl_result="$(
+				curl -k -I -L -sS --noproxy "" \
 					--connect-timeout 5 --max-time 10 \
 					-x "${proxy_type}://${proxy_addr}" \
-					-o /dev/null -w '%{time_total}' \
+					-o /dev/null -w '%{http_code}:%{time_pretransfer}' \
 					"$url" 2>"$error_file"
 			)"
 			rc=$?
 			;;
 		socks5)
-			time_total="$(
-				curl -k -L -sS --fail --noproxy "" \
+			curl_result="$(
+				curl -k -I -L -sS --noproxy "" \
 					--connect-timeout 5 --max-time 10 \
 					--socks5 "$proxy_addr" \
-					-o /dev/null -w '%{time_total}' \
+					-o /dev/null -w '%{http_code}:%{time_pretransfer}' \
 					"$url" 2>"$error_file"
 			)"
 			rc=$?
 			;;
 		socks5h|*)
-			time_total="$(
-				curl -k -L -sS --fail --noproxy "" \
+			curl_result="$(
+				curl -k -I -L -sS --noproxy "" \
 					--connect-timeout 5 --max-time 10 \
 					--socks5-hostname "$proxy_addr" \
-					-o /dev/null -w '%{time_total}' \
+					-o /dev/null -w '%{http_code}:%{time_pretransfer}' \
 					"$url" 2>"$error_file"
 			)"
 			rc=$?
 			;;
 	esac
 
-	if [ "$rc" -eq 0 ] && [ -n "$time_total" ]; then
-		rtt_ms="$(awk -v sec="$time_total" 'BEGIN { printf "%.1f", (sec + 0) * 1000 }')"
-		write_result_file "$result_file" "1" "$rtt_ms" "curl 代理探测成功"
+	http_code="$(printf '%s' "$curl_result" | awk -F ':' 'NR==1 { print $1 }')"
+	time_pretransfer="$(printf '%s' "$curl_result" | awk -F ':' 'NR==1 { print $2 }')"
+
+	if [ "$rc" -eq 0 ] && [ -n "$http_code" ] && [ "$http_code" != "000" ] && [ -n "$time_pretransfer" ]; then
+		rtt_ms="$(awk -v sec="$time_pretransfer" 'BEGIN { printf "%.1f", (sec + 0) * 1000 }')"
+		write_result_file "$result_file" "1" "$rtt_ms" "curl 连接探测成功，HTTP ${http_code}"
 	else
 		detail="$(sed -n '1p' "$error_file" 2>/dev/null)"
-		[ -n "$detail" ] || detail="curl 退出码 ${rc}"
+		[ -n "$detail" ] || detail="curl 退出码 ${rc}，HTTP ${http_code:-000}"
 		write_result_file "$result_file" "0" "" "$detail"
 	fi
 
@@ -434,3 +439,4 @@ while true; do
 
 	sleep 1
 done
+
