@@ -54,8 +54,6 @@ kill_children() {
 
 cleanup() {
 	kill_children
-	rm -f "$STATUS_FILE" "$STATUS_TMP"
-	rm -rf "$RUN_DIR"
 	exit 0
 }
 
@@ -70,6 +68,7 @@ write_result_file() {
 	local rtt="$3"
 	local detail="$4"
 
+	mkdir -p "$(dirname "$path")"
 	printf '%s\n%s\n%s\n' "$success" "$rtt" "$detail" > "$path"
 }
 
@@ -82,6 +81,44 @@ normalize_foreign_url() {
 			printf 'https://%s\n' "$1"
 			;;
 	esac
+}
+
+ensure_runtime_state() {
+	local domestic
+	local foreign
+	local proxy_type
+	local proxy_host
+	local proxy_port
+
+	mkdir -p "$RUN_DIR"
+
+	if [ ! -s "$START_TIME_FILE" ]; then
+		date '+%Y-%m-%d %H:%M:%S' > "$START_TIME_FILE"
+	fi
+
+	if [ -f "$RUN_DIR/config" ]; then
+		return 0
+	fi
+
+	if ! command -v uci >/dev/null 2>&1; then
+		return 0
+	fi
+
+	domestic="$(uci -q get pingpacket.config.domestic_target)"
+	foreign="$(uci -q get pingpacket.config.foreign_target)"
+	proxy_type="$(uci -q get pingpacket.config.foreign_proxy_type)"
+	proxy_host="$(uci -q get pingpacket.config.foreign_proxy_host)"
+	proxy_port="$(uci -q get pingpacket.config.foreign_proxy_port)"
+
+	[ -n "$proxy_type" ] || proxy_type="socks5"
+	[ -n "$proxy_host" ] || proxy_host="127.0.0.1"
+	[ -n "$proxy_port" ] || proxy_port="7891"
+
+	printf '%s\n' "$domestic" > "$RUN_DIR/config"
+	printf '%s\n' "$foreign" >> "$RUN_DIR/config"
+	printf '%s\n' "$proxy_type" >> "$RUN_DIR/config"
+	printf '%s\n' "$proxy_host" >> "$RUN_DIR/config"
+	printf '%s\n' "$proxy_port" >> "$RUN_DIR/config"
 }
 
 do_ping() {
@@ -391,6 +428,7 @@ update_cumulative_stats() {
 }
 
 while true; do
+	ensure_runtime_state
 	START_TIME="$(cat "$START_TIME_FILE" 2>/dev/null || echo "")"
 	UPDATED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
 	DOMESTIC_TARGET=""

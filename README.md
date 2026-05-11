@@ -115,7 +115,7 @@
 安装脚本会在缺失时补齐以下默认目标：
 
 - 国内：`www.baidu.com`
-- 国外：`www.google.com`
+- 国外：`https://www.google.com/generate_204`
 - 国外代理类型：`socks5`
 - 国外代理端口：`7891`
 
@@ -125,7 +125,7 @@
 config pingpacket 'config'
 	option enabled '0'
 	option domestic_target ''
-	option foreign_target ''
+	option foreign_target 'https://www.google.com/generate_204'
 	option foreign_proxy_type 'socks5'
 	option foreign_proxy_host '127.0.0.1'
 	option foreign_proxy_port '7891'

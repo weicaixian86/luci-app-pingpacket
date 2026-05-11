@@ -1,7 +1,7 @@
 config pingpacket 'config'
 	option enabled '0'
 	option domestic_target ''
-	option foreign_target ''
+	option foreign_target 'https://www.google.com/generate_204'
 	option foreign_proxy_type 'socks5'
 	option foreign_proxy_host '127.0.0.1'
 	option foreign_proxy_port '7891'
