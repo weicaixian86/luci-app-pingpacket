@@ -1,6 +1,7 @@
 module("luci.controller.pingpacket", package.seeall)
 
 local LOG_FILE = "/tmp/pingpacket.log"
+local CPU_STATE_FILE = "/tmp/pingpacket_cpu_state"
 
 local function trim(value)
 	return (value or ""):gsub("%c", ""):match("^%s*(.-)%s*$") or ""
@@ -66,6 +67,148 @@ local function read_log_payload()
 	}
 end
 
+local function read_cpu_sample()
+	local file = io.open("/proc/stat", "r")
+	if not file then
+		return nil, nil
+	end
+
+	local line = file:read("*l") or ""
+	file:close()
+
+	local total = 0
+	local idle = 0
+	local index = 0
+
+	for token in line:gmatch("%S+") do
+		if token ~= "cpu" then
+			index = index + 1
+			if index > 8 then
+				break
+			end
+
+			local value = tonumber(token) or 0
+			total = total + value
+
+			if index == 4 or index == 5 then
+				idle = idle + value
+			end
+		end
+	end
+
+	if total <= 0 then
+		return nil, nil
+	end
+
+	return total, idle
+end
+
+local function read_saved_cpu_sample()
+	local content = trim(read_file_content(CPU_STATE_FILE))
+	local total, idle, timestamp = content:match("^(%d+)%s+(%d+)%s*(%d*)$")
+
+	if not total or not idle then
+		return nil, nil, nil
+	end
+
+	timestamp = tonumber(timestamp)
+
+	return tonumber(total), tonumber(idle), timestamp
+end
+
+local function write_cpu_sample(total, idle)
+	local file = io.open(CPU_STATE_FILE, "w")
+	if not file then
+		return
+	end
+
+	file:write(string.format("%d %d %d\n", total, idle, os.time()))
+	file:close()
+end
+
+local function format_percent(value)
+	value = tonumber(value) or 0
+
+	if value < 0 then
+		value = 0
+	elseif value > 100 then
+		value = 100
+	end
+
+	return string.format("%.1f", value)
+end
+
+local function read_memory_usage()
+	local file = io.open("/proc/meminfo", "r")
+	if not file then
+		return "0.0"
+	end
+
+	local mem_total
+	local mem_available
+	local mem_free = 0
+	local buffers = 0
+	local cached = 0
+
+	for line in file:lines() do
+		local key, value = line:match("^(%w+):%s+(%d+)")
+		value = tonumber(value)
+
+		if key == "MemTotal" then
+			mem_total = value
+		elseif key == "MemAvailable" then
+			mem_available = value
+		elseif key == "MemFree" then
+			mem_free = value or 0
+		elseif key == "Buffers" then
+			buffers = value or 0
+		elseif key == "Cached" then
+			cached = value or 0
+		end
+	end
+
+	file:close()
+
+	if not mem_total or mem_total <= 0 then
+		return "0.0"
+	end
+
+	if not mem_available then
+		mem_available = mem_free + buffers + cached
+	end
+
+	return format_percent(((mem_total - mem_available) * 100) / mem_total)
+end
+
+local function read_system_metrics()
+	local current_total, current_idle = read_cpu_sample()
+	local previous_total, previous_idle, previous_timestamp = read_saved_cpu_sample()
+	local cpu_usage = "0.0"
+
+	if current_total and current_idle then
+		if not previous_timestamp or (os.time() - previous_timestamp) > 10 then
+			previous_total = nil
+			previous_idle = nil
+		end
+
+		if previous_total and previous_idle and current_total > previous_total then
+			local total_delta = current_total - previous_total
+			local idle_delta = current_idle - previous_idle
+
+			if total_delta > 0 then
+				cpu_usage = format_percent(((total_delta - idle_delta) * 100) / total_delta)
+			end
+		end
+
+		write_cpu_sample(current_total, current_idle)
+	end
+
+	return {
+		cpu_usage = cpu_usage,
+		memory_usage = read_memory_usage()
+	}
+end
+
 function index()
 	if not nixio.fs.access("/etc/config/pingpacket") then
 		return
@@ -107,6 +250,7 @@ function action_get_data()
 		start_time = read_start_time(),
 		updated_at = "",
 		service_running = (sys.call("[ -s /var/run/pingpacket/start_time ]") == 0),
+		system = read_system_metrics(),
 		domestic = {
 			avg = "0.0",
 			min = "0.0",

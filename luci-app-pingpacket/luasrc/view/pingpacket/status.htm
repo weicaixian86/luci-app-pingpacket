@@ -157,7 +157,7 @@
 
 .pp-meta-grid {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
 	gap: 14px;
 	margin-bottom: 18px;
 }
@@ -563,6 +563,14 @@
 			<span class="pp-meta-label">最近更新</span>
 			<div class="pp-meta-value" id="updatedAt">--</div>
 		</div>
+		<div class="pp-meta-card">
+			<span class="pp-meta-label">CPU 占用</span>
+			<div class="pp-meta-value" id="cpuUsage">--</div>
+		</div>
+		<div class="pp-meta-card">
+			<span class="pp-meta-label">内存占用</span>
+			<div class="pp-meta-value" id="memoryUsage">--</div>
+		</div>
 	</div>
 
 	<div class="pp-cards">
@@ -873,6 +881,16 @@
 		}
 	}
 
+	function formatPercent(value) {
+		var numeric = Number(value);
+
+		if (!isFinite(numeric)) {
+			return '--';
+		}
+
+		return numeric.toFixed(1) + '%';
+	}
+
 	function buildPayload(enabled, requestSource) {
 		return 'token=' + encodeURIComponent(formToken) +
 			'&enabled=' + encodeURIComponent(enabled) +
@@ -905,6 +923,8 @@
 
 		setStat('domestic', data.domestic || {});
 		setStat('foreign', data.foreign || {});
+		$('cpuUsage').textContent = formatPercent(data.system && data.system.cpu_usage);
+		$('memoryUsage').textContent = formatPercent(data.system && data.system.memory_usage);
 
 		$('updatedAt').textContent = data.updated_at || '--';
 		$('updatedCard').className = stale ? 'pp-meta-card stale' : 'pp-meta-card';
