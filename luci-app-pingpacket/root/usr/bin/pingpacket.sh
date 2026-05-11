@@ -64,6 +64,26 @@ trap cleanup INT TERM
 mkdir -p "$RUN_DIR"
 date '+%Y-%m-%d %H:%M:%S' > "$START_TIME_FILE"
 
+write_result_file() {
+	local path="$1"
+	local success="$2"
+	local rtt="$3"
+	local detail="$4"
+
+	printf '%s\n%s\n%s\n' "$success" "$rtt" "$detail" > "$path"
+}
+
+normalize_foreign_url() {
+	case "$1" in
+		http://*|https://*)
+			printf '%s\n' "$1"
+			;;
+		*)
+			printf 'https://%s\n' "$1"
+			;;
+	esac
+}
+
 do_ping() {
 	local target="$1"
 	local name="$2"
@@ -74,10 +94,83 @@ do_ping() {
 	result="$(ping -c 1 -W 2 "$target" 2>/dev/null)"
 	if echo "$result" | grep -q "bytes from"; then
 		rtt="$(echo "$result" | sed -n 's/.*time=\([0-9.]*\).*/\1/p')"
-		printf '1\n%s\n' "$rtt" > "$result_file"
+		write_result_file "$result_file" "1" "${rtt:-0}" ""
 	else
-		printf '0\n\n' > "$result_file"
+		write_result_file "$result_file" "0" "" "ping 无响应"
 	fi
+}
+
+do_proxy_curl() {
+	local target="$1"
+	local proxy_type="$2"
+	local proxy_host="$3"
+	local proxy_port="$4"
+	local name="$5"
+	local result_file="$RUN_DIR/${name}_last_result"
+	local error_file="$RUN_DIR/${name}_curl_error"
+	local url
+	local proxy_addr
+	local time_total
+	local rtt_ms
+	local detail
+	local rc
+
+	if ! command -v curl >/dev/null 2>&1; then
+		write_result_file "$result_file" "0" "" "系统未安装 curl"
+		return 0
+	fi
+
+	if [ -z "$proxy_host" ] || [ -z "$proxy_port" ]; then
+		write_result_file "$result_file" "0" "" "代理主机或端口未配置"
+		return 0
+	fi
+
+	url="$(normalize_foreign_url "$target")"
+	proxy_addr="${proxy_host}:${proxy_port}"
+
+	case "$proxy_type" in
+		http|https)
+			time_total="$(
+				curl -k -L -sS --fail --noproxy "" \
+					--connect-timeout 5 --max-time 10 \
+					-x "${proxy_type}://${proxy_addr}" \
+					-o /dev/null -w '%{time_total}' \
+					"$url" 2>"$error_file"
+			)"
+			rc=$?
+			;;
+		socks5)
+			time_total="$(
+				curl -k -L -sS --fail --noproxy "" \
+					--connect-timeout 5 --max-time 10 \
+					--socks5 "$proxy_addr" \
+					-o /dev/null -w '%{time_total}' \
+					"$url" 2>"$error_file"
+			)"
+			rc=$?
+			;;
+		socks5h|*)
+			time_total="$(
+				curl -k -L -sS --fail --noproxy "" \
+					--connect-timeout 5 --max-time 10 \
+					--socks5-hostname "$proxy_addr" \
+					-o /dev/null -w '%{time_total}' \
+					"$url" 2>"$error_file"
+			)"
+			rc=$?
+			;;
+	esac
+
+	if [ "$rc" -eq 0 ] && [ -n "$time_total" ]; then
+		rtt_ms="$(awk -v sec="$time_total" 'BEGIN { printf "%.1f", (sec + 0) * 1000 }')"
+		write_result_file "$result_file" "1" "$rtt_ms" "curl 代理探测成功"
+	else
+		detail="$(sed -n '1p' "$error_file" 2>/dev/null)"
+		[ -n "$detail" ] || detail="curl 退出码 ${rc}"
+		write_result_file "$result_file" "0" "" "$detail"
+	fi
+
+	rm -f "$error_file"
 }
 
 get_target_state() {
@@ -130,6 +223,7 @@ update_target_faults() {
 	local result_file="$RUN_DIR/${name}_last_result"
 	local success="0"
 	local rtt=""
+	local detail=""
 
 	[ -n "$target" ] || {
 		reset_target_state "$name"
@@ -141,6 +235,7 @@ update_target_faults() {
 	if [ -f "$result_file" ]; then
 		success="$(sed -n '1p' "$result_file" 2>/dev/null)"
 		rtt="$(sed -n '2p' "$result_file" 2>/dev/null)"
+		detail="$(sed -n '3p' "$result_file" 2>/dev/null)"
 	fi
 
 	if [ "$success" = "1" ]; then
@@ -153,7 +248,11 @@ update_target_faults() {
 	fi
 
 	fail_count=$((fail_count + 1))
-	log_event "丢包" "$label" "目标 ${target} 本次探测失败（连续第 ${fail_count} 次）"
+	if [ -n "$detail" ]; then
+		log_event "丢包" "$label" "目标 ${target} 本次探测失败（连续第 ${fail_count} 次）：${detail}"
+	else
+		log_event "丢包" "$label" "目标 ${target} 本次探测失败（连续第 ${fail_count} 次）"
+	fi
 	fault_open=1
 
 	set_target_state "$name" "$fail_count" "$fault_open"
@@ -291,11 +390,19 @@ while true; do
 	UPDATED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
 	DOMESTIC_TARGET=""
 	FOREIGN_TARGET=""
+	FOREIGN_PROXY_TYPE="socks5"
+	FOREIGN_PROXY_HOST=""
+	FOREIGN_PROXY_PORT=""
 
 	if [ -f "$RUN_DIR/config" ]; then
 		DOMESTIC_TARGET="$(sed -n '1p' "$RUN_DIR/config")"
 		FOREIGN_TARGET="$(sed -n '2p' "$RUN_DIR/config")"
+		FOREIGN_PROXY_TYPE="$(sed -n '3p' "$RUN_DIR/config")"
+		FOREIGN_PROXY_HOST="$(sed -n '4p' "$RUN_DIR/config")"
+		FOREIGN_PROXY_PORT="$(sed -n '5p' "$RUN_DIR/config")"
 	fi
+
+	[ -n "$FOREIGN_PROXY_TYPE" ] || FOREIGN_PROXY_TYPE="socks5"
 
 	child_pids=""
 	if [ -n "$DOMESTIC_TARGET" ]; then
@@ -304,7 +411,7 @@ while true; do
 	fi
 
 	if [ -n "$FOREIGN_TARGET" ]; then
-		do_ping "$FOREIGN_TARGET" "foreign" &
+		do_proxy_curl "$FOREIGN_TARGET" "$FOREIGN_PROXY_TYPE" "$FOREIGN_PROXY_HOST" "$FOREIGN_PROXY_PORT" "foreign" &
 		child_pids="${child_pids:+$child_pids }$!"
 	fi
 

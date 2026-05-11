@@ -23,7 +23,7 @@
 }
 
 .pp-title-wrap {
-	max-width: 680px;
+	max-width: 700px;
 }
 
 .pp-kicker {
@@ -45,7 +45,7 @@
 	margin: 10px 0 0;
 	font-size: 14px;
 	line-height: 1.65;
-	color: rgba(255, 255, 255, 0.86);
+	color: rgba(255, 255, 255, 0.88);
 }
 
 .pp-toggle-panel {
@@ -258,6 +258,14 @@
 	font-style: italic;
 }
 
+.pp-target-meta {
+	margin-top: 4px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #7a8ba2;
+	word-break: break-word;
+}
+
 .pp-samples {
 	display: inline-flex;
 	flex-direction: column;
@@ -265,7 +273,7 @@
 	justify-content: center;
 	gap: 3px;
 	flex: 0 0 auto;
-	min-width: 118px;
+	min-width: 126px;
 	max-width: 100%;
 	padding: 8px 12px;
 	border-radius: 14px;
@@ -287,9 +295,9 @@
 	min-width: 0;
 	max-width: 100%;
 	text-align: right;
-	font-size: 16px;
+	font-size: 15px;
 	font-weight: 700;
-	line-height: 1.1;
+	line-height: 1.15;
 	color: #1f3147;
 	overflow-wrap: anywhere;
 	word-break: break-all;
@@ -327,12 +335,14 @@
 }
 
 .pp-stat-number span:first-child {
-	font-size: 22px;
-	line-height: 1;
+	font-size: 19px;
+	line-height: 1.1;
 	font-weight: 700;
 	letter-spacing: -0.02em;
 	font-variant-numeric: tabular-nums;
 	font-family: "JetBrains Mono", "Consolas", "Menlo", monospace;
+	overflow-wrap: anywhere;
+	word-break: break-all;
 }
 
 .pp-stat-number .pp-unit {
@@ -373,12 +383,20 @@
 
 .pp-panel-note {
 	font-size: 13px;
+	line-height: 1.7;
 	color: #70839b;
 }
 
 .pp-form-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.pp-proxy-grid {
+	display: grid;
+	grid-template-columns: 160px repeat(2, minmax(0, 1fr));
 	gap: 16px;
 	margin-bottom: 16px;
 }
@@ -391,11 +409,8 @@
 	color: #344a63;
 }
 
-.pp-input-wrap {
-	position: relative;
-}
-
-.pp-input {
+.pp-input,
+.pp-select {
 	width: 100%;
 	height: 44px;
 	padding: 0 14px;
@@ -408,14 +423,20 @@
 	transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.pp-input:focus {
+.pp-select {
+	padding-right: 40px;
+}
+
+.pp-input:focus,
+.pp-select:focus {
 	outline: none;
 	border-color: #1d71e8;
 	box-shadow: 0 0 0 4px rgba(29, 113, 232, 0.12);
 	background: #fff;
 }
 
-.pp-input:disabled {
+.pp-input:disabled,
+.pp-select:disabled {
 	background: #f4f7fb;
 	cursor: not-allowed;
 }
@@ -423,7 +444,7 @@
 .pp-hint {
 	margin-top: 7px;
 	font-size: 12px;
-	line-height: 1.55;
+	line-height: 1.6;
 	color: #7f90a6;
 }
 
@@ -437,6 +458,7 @@
 
 .pp-action-copy {
 	font-size: 13px;
+	line-height: 1.7;
 	color: #6f8198;
 }
 
@@ -523,7 +545,11 @@
 	}
 
 	.pp-samples {
-		min-width: 104px;
+		min-width: 108px;
+	}
+
+	.pp-proxy-grid {
+		grid-template-columns: 1fr;
 	}
 }
 
@@ -545,6 +571,10 @@
 		padding-left: 18px;
 		padding-right: 18px;
 	}
+
+	.pp-stats {
+		grid-template-columns: 1fr;
+	}
 }
 </style>
 
@@ -553,7 +583,7 @@
 		<div class="pp-title-wrap">
 			<div class="pp-kicker">OpenWrt Status</div>
 			<h2 class="pp-title">Ping丢包监控</h2>
-			<p class="pp-subtitle">实时查看国内与国外目标的平均延迟、最低延迟、最高延迟和丢包率，保存配置后会自动按当前设置重启监控服务。</p>
+			<p class="pp-subtitle">国内目标继续使用 ICMP Ping，国外目标改为通过代理发起 `curl` 请求探测。保存并应用后，如果监控已启用，服务会自动重启并按最新配置重新开始累计统计。</p>
 		</div>
 
 		<div class="pp-toggle-panel">
@@ -600,6 +630,7 @@
 				<div>
 					<h3 class="pp-card-title">国内目标</h3>
 					<div class="pp-target inactive" id="domesticTarget">未配置</div>
+					<div class="pp-target-meta">探测方式：ICMP Ping</div>
 				</div>
 				<div class="pp-samples">
 					<span class="pp-samples-label">样本数</span>
@@ -644,6 +675,7 @@
 				<div>
 					<h3 class="pp-card-title">国外目标</h3>
 					<div class="pp-target inactive" id="foreignTarget">未配置</div>
+					<div class="pp-target-meta" id="foreignProxySummary">探测方式：代理 curl</div>
 				</div>
 				<div class="pp-samples">
 					<span class="pp-samples-label">样本数</span>
@@ -688,30 +720,51 @@
 		<div class="pp-panel-head">
 			<div>
 				<h3 class="pp-panel-title">监控设置</h3>
-				<div class="pp-panel-note">保存并应用时，如果当前监控已启用，会自动重启并按最新配置同时监控国内与国外目标。</div>
+				<div class="pp-panel-note">国外目标会通过代理发起 `curl` 请求统计延迟和丢包。若你只填写国外目标，则必须同时填写代理类型、代理主机和代理端口。未写协议的国外目标会自动按 `https://` 处理。</div>
 			</div>
 		</div>
 
 		<div class="pp-form-grid">
 			<div class="pp-field">
-				<label for="domesticInput">Ping 国内 IP 或域名</label>
-				<div class="pp-input-wrap">
-					<input class="pp-input" type="text" id="domesticInput" placeholder="例如：114.114.114.114 或 baidu.com">
-				</div>
-				<div class="pp-hint">可留空；若与国外目标都为空，则无法保存或启用监控。</div>
+				<label for="domesticInput">国内 IP 或域名</label>
+				<input class="pp-input" type="text" id="domesticInput" placeholder="例如：www.baidu.com">
+				<div class="pp-hint">国内目标继续使用本机 ICMP Ping。可留空，但国内和国外不能同时留空。</div>
 			</div>
 
 			<div class="pp-field">
-				<label for="foreignInput">Ping 国外 IP 或域名</label>
-				<div class="pp-input-wrap">
-					<input class="pp-input" type="text" id="foreignInput" placeholder="例如：8.8.8.8 或 google.com">
-				</div>
-				<div class="pp-hint">保存后会写入配置并在服务启用状态下自动重启，使两个目标同时生效。</div>
+				<label for="foreignInput">国外 URL 或域名</label>
+				<input class="pp-input" type="text" id="foreignInput" placeholder="例如：www.google.com 或 https://www.google.com/generate_204">
+				<div class="pp-hint">国外目标改为通过代理执行 curl 探测。未填写协议时，系统会自动补成 `https://`。</div>
+			</div>
+		</div>
+
+		<div class="pp-proxy-grid">
+			<div class="pp-field">
+				<label for="proxyTypeInput">代理类型</label>
+				<select class="pp-select" id="proxyTypeInput">
+					<option value="http">HTTP</option>
+					<option value="https">HTTPS</option>
+					<option value="socks5">SOCKS5</option>
+					<option value="socks5h">SOCKS5H</option>
+				</select>
+				<div class="pp-hint">当前默认走 SOCKS5；若希望域名解析也通过代理，可改选 SOCKS5H。</div>
+			</div>
+
+			<div class="pp-field">
+				<label for="proxyHostInput">代理主机</label>
+				<input class="pp-input" type="text" id="proxyHostInput" placeholder="例如：127.0.0.1">
+				<div class="pp-hint">只有填写国外目标时才要求必填。</div>
+			</div>
+
+			<div class="pp-field">
+				<label for="proxyPortInput">代理端口</label>
+				<input class="pp-input" type="text" id="proxyPortInput" inputmode="numeric" placeholder="例如：7890">
+				<div class="pp-hint">必须是 1 到 65535 的数字。</div>
 			</div>
 		</div>
 
 		<div class="pp-actions">
-			<div class="pp-action-copy">平均延迟、最低延迟、最高延迟、丢包率和样本数均为当前服务运行期间的累计统计，停止或重启服务后会重新开始统计。</div>
+			<div class="pp-action-copy">平均延迟、最低延迟、最高延迟、丢包率和样本数均为本次服务启用后的累计统计值。停止或重启服务后，统计会重新开始；长期运行时样本数会持续增长并完整显示。</div>
 			<div class="pp-action-right">
 				<button class="pp-button pp-button-secondary hidden" id="restartButton" onclick="restartService()">重新启动服务</button>
 				<button class="pp-button" id="saveButton" onclick="saveConfig()">保存并应用</button>
@@ -734,16 +787,22 @@
 	var restartInFlight = false;
 	var durationTimer = null;
 	var startTimeRef = null;
-	var inputDirty = {
-		domestic: false,
-		foreign: false
-	};
-	var lastServerTargets = {
-		domestic: '',
-		foreign: ''
-	};
 	var pollInterval = 1500;
 	var staleThresholdMs = 10000;
+	var inputDirty = {
+		domestic: false,
+		foreign: false,
+		proxyType: false,
+		proxyHost: false,
+		proxyPort: false
+	};
+	var lastServerValues = {
+		domestic: '',
+		foreign: '',
+		proxyType: 'socks5',
+		proxyHost: '',
+		proxyPort: ''
+	};
 
 	function $(id) {
 		return document.getElementById(id);
@@ -797,6 +856,9 @@
 		$('restartButton').disabled = disabled;
 		$('domesticInput').disabled = disabled;
 		$('foreignInput').disabled = disabled;
+		$('proxyTypeInput').disabled = disabled;
+		$('proxyHostInput').disabled = disabled;
+		$('proxyPortInput').disabled = disabled;
 	}
 
 	function setMessage(text, type) {
@@ -809,15 +871,45 @@
 		return $('domesticInput').value.trim() !== '' || $('foreignInput').value.trim() !== '';
 	}
 
+	function validateInputs() {
+		var foreign = $('foreignInput').value.trim();
+		var proxyHost = $('proxyHostInput').value.trim();
+		var proxyPort = $('proxyPortInput').value.trim();
+
+		if (!hasAnyTarget()) {
+			return '请至少填写一个监控目标。';
+		}
+
+		if (foreign !== '' && (proxyHost === '' || proxyPort === '')) {
+			return '已填写国外目标时，请同时填写代理主机和端口。';
+		}
+
+		if (proxyPort !== '' && !/^\d+$/.test(proxyPort)) {
+			return '代理端口必须是 1 到 65535 之间的数字。';
+		}
+
+		if (proxyPort !== '') {
+			var numericPort = Number(proxyPort);
+			if (numericPort < 1 || numericPort > 65535) {
+				return '代理端口必须是 1 到 65535 之间的数字。';
+			}
+		}
+
+		return '';
+	}
+
 	function clearDirtyState() {
 		inputDirty.domestic = false;
 		inputDirty.foreign = false;
+		inputDirty.proxyType = false;
+		inputDirty.proxyHost = false;
+		inputDirty.proxyPort = false;
 	}
 
 	function refreshDirtyState(key, id) {
 		var input = $(id);
 		var currentValue = input.value.trim();
-		if (currentValue === (lastServerTargets[key] || '')) {
+		if (currentValue === (lastServerValues[key] || '')) {
 			inputDirty[key] = false;
 		}
 	}
@@ -825,9 +917,12 @@
 	function refreshAllDirtyStates() {
 		refreshDirtyState('domestic', 'domesticInput');
 		refreshDirtyState('foreign', 'foreignInput');
+		refreshDirtyState('proxyType', 'proxyTypeInput');
+		refreshDirtyState('proxyHost', 'proxyHostInput');
+		refreshDirtyState('proxyPort', 'proxyPortInput');
 	}
 
-	function syncInputValue(id, value, key) {
+	function syncFieldValue(id, value, key) {
 		var input = $(id);
 		if (inputDirty[key] || document.activeElement === input) {
 			return;
@@ -836,8 +931,8 @@
 		input.value = value || '';
 	}
 
-	function setTarget(id, value) {
-		var target = $(id);
+	function setTarget(targetId, value) {
+		var target = $(targetId);
 		if (value) {
 			target.textContent = value;
 			target.className = 'pp-target';
@@ -857,21 +952,21 @@
 		if (enabled && running && stale) {
 			badge.textContent = '数据停滞';
 			badge.className = 'pp-badge stale';
-			label.textContent = '最近更新超过 10 秒，建议检查网络或服务状态';
+			label.textContent = '最近更新超过 10 秒，建议检查网络或直接重启服务。';
 			return;
 		}
 
 		if (enabled && running) {
 			badge.textContent = '运行中';
 			badge.className = 'pp-badge running';
-			label.textContent = '监控已启用，数据正在持续刷新';
+			label.textContent = '监控已启用，数据正在持续刷新。';
 			return;
 		}
 
 		if (enabled && !running) {
 			badge.textContent = '启动中';
 			badge.className = 'pp-badge pending';
-			label.textContent = '正在重启服务，等待首个监控结果';
+			label.textContent = '正在等待新的监控结果写入。';
 			return;
 		}
 
@@ -918,12 +1013,23 @@
 		return numeric.toFixed(1) + '%';
 	}
 
+	function buildProxySummary(type, host, port) {
+		if (!host || !port) {
+		return '探测方式：代理 curl（代理未完整配置）';
+		}
+
+		return '探测方式：代理 curl，经由 ' + type + '://' + host + ':' + port;
+	}
+
 	function buildPayload(enabled, requestSource) {
 		return 'token=' + encodeURIComponent(formToken) +
 			'&enabled=' + encodeURIComponent(enabled) +
 			'&request_source=' + encodeURIComponent(requestSource || '') +
 			'&domestic_target=' + encodeURIComponent($('domesticInput').value.trim()) +
-			'&foreign_target=' + encodeURIComponent($('foreignInput').value.trim());
+			'&foreign_target=' + encodeURIComponent($('foreignInput').value.trim()) +
+			'&foreign_proxy_type=' + encodeURIComponent($('proxyTypeInput').value.trim()) +
+			'&foreign_proxy_host=' + encodeURIComponent($('proxyHostInput').value.trim()) +
+			'&foreign_proxy_port=' + encodeURIComponent($('proxyPortInput').value.trim());
 	}
 
 	function updateUI(data) {
@@ -931,6 +1037,9 @@
 		var serverTime = parseDateTime(data.server_time || '');
 		var updatedTime = parseDateTime(data.updated_at || '');
 		var stale = false;
+		var proxyType = (data.foreign_proxy_type || 'socks5').trim() || 'socks5';
+		var proxyHost = (data.foreign_proxy_host || '').trim();
+		var proxyPort = (data.foreign_proxy_port || '').trim();
 
 		if (enabled && data.service_running && serverTime && updatedTime) {
 			stale = (serverTime.getTime() - updatedTime.getTime()) > staleThresholdMs;
@@ -939,14 +1048,21 @@
 		$('enableSwitch').checked = enabled;
 		setServiceState(enabled, !!data.service_running, stale);
 
-		lastServerTargets.domestic = (data.domestic_target || '').trim();
-		lastServerTargets.foreign = (data.foreign_target || '').trim();
+		lastServerValues.domestic = (data.domestic_target || '').trim();
+		lastServerValues.foreign = (data.foreign_target || '').trim();
+		lastServerValues.proxyType = proxyType;
+		lastServerValues.proxyHost = proxyHost;
+		lastServerValues.proxyPort = proxyPort;
 
-		syncInputValue('domesticInput', data.domestic_target || '', 'domestic');
-		syncInputValue('foreignInput', data.foreign_target || '', 'foreign');
+		syncFieldValue('domesticInput', data.domestic_target || '', 'domestic');
+		syncFieldValue('foreignInput', data.foreign_target || '', 'foreign');
+		syncFieldValue('proxyTypeInput', proxyType, 'proxyType');
+		syncFieldValue('proxyHostInput', proxyHost, 'proxyHost');
+		syncFieldValue('proxyPortInput', proxyPort, 'proxyPort');
 
 		setTarget('domesticTarget', data.domestic_target || '');
 		setTarget('foreignTarget', data.foreign_target || '');
+		$('foreignProxySummary').textContent = buildProxySummary(proxyType, proxyHost, proxyPort);
 
 		setStat('domestic', data.domestic || {});
 		setStat('foreign', data.foreign || {});
@@ -1098,11 +1214,15 @@
 	window.toggleService = function() {
 		var enableSwitch = $('enableSwitch');
 		var previousChecked = !enableSwitch.checked;
+		var validationMessage = '';
 
-		if (enableSwitch.checked && !hasAnyTarget()) {
-			enableSwitch.checked = previousChecked;
-			alert('请至少配置一个目标。');
-			return;
+		if (enableSwitch.checked) {
+			validationMessage = validateInputs();
+			if (validationMessage) {
+				enableSwitch.checked = previousChecked;
+				alert(validationMessage);
+				return;
+			}
 		}
 
 		submitConfig(
@@ -1118,8 +1238,9 @@
 	};
 
 	window.saveConfig = function() {
-		if (!hasAnyTarget()) {
-			setMessage('请至少配置一个目标。', 'error');
+		var validationMessage = validateInputs();
+		if (validationMessage) {
+			setMessage(validationMessage, 'error');
 			return;
 		}
 
@@ -1137,7 +1258,7 @@
 	window.restartService = function() {
 		submitRestart(
 			function() {
-				setMessage('已触发服务重启，正在等待最新监控结果。', 'success');
+				setMessage('已触发服务重启，正在等待新的监控结果。', 'success');
 			},
 			function(message) {
 				setMessage(message || '重启服务失败，请稍后重试。', 'error');
@@ -1159,6 +1280,30 @@
 
 	$('foreignInput').addEventListener('blur', function() {
 		refreshDirtyState('foreign', 'foreignInput');
+	});
+
+	$('proxyTypeInput').addEventListener('change', function() {
+		inputDirty.proxyType = true;
+	});
+
+	$('proxyTypeInput').addEventListener('blur', function() {
+		refreshDirtyState('proxyType', 'proxyTypeInput');
+	});
+
+	$('proxyHostInput').addEventListener('input', function() {
+		inputDirty.proxyHost = true;
+	});
+
+	$('proxyHostInput').addEventListener('blur', function() {
+		refreshDirtyState('proxyHost', 'proxyHostInput');
+	});
+
+	$('proxyPortInput').addEventListener('input', function() {
+		inputDirty.proxyPort = true;
+	});
+
+	$('proxyPortInput').addEventListener('blur', function() {
+		refreshDirtyState('proxyPort', 'proxyPortInput');
 	});
 
 	document.addEventListener('visibilitychange', function() {

@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-pingpacket
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=9
+PKG_RELEASE:=12
 PKG_LICENSE:=Apache-2.0
 
 include $(INCLUDE_DIR)/package.mk
@@ -13,7 +13,7 @@ define Package/$(PKG_NAME)
   SUBMENU:=3. Applications
   TITLE:=Pingpacket
   PKGARCH:=all
-  DEPENDS:=+luci-base +luci-lua-runtime +luci-compat
+  DEPENDS:=+luci-base +luci-lua-runtime +luci-compat +curl
 endef
 
 define Package/$(PKG_NAME)/description
@@ -52,6 +52,9 @@ ensure_config_file() { \
 		"	option enabled '0'" \
 		"	option domestic_target ''" \
 		"	option foreign_target ''" \
+		"	option foreign_proxy_type 'socks5'" \
+		"	option foreign_proxy_host ''" \
+		"	option foreign_proxy_port ''" \
 		> "$$target"; \
 }; \
 if [ -n "$${IPKG_INSTROOT}" ]; then \
@@ -70,6 +73,10 @@ changed=0; \
 	fi; \
 	if [ -z "$$(uci -q get pingpacket.config.foreign_target)" ]; then \
 		uci set pingpacket.config.foreign_target='www.google.com'; \
+		changed=1; \
+	fi; \
+	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_type)" ]; then \
+		uci set pingpacket.config.foreign_proxy_type='socks5'; \
 		changed=1; \
 	fi; \
 	[ "$$changed" = "1" ] && uci commit pingpacket; \
