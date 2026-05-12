@@ -736,6 +736,17 @@
 				<input class="pp-input" type="text" id="foreignInput" placeholder="例如：www.google.com 或 https://www.google.com/generate_204">
 				<div class="pp-hint">国外目标改为通过代理执行 curl 探测。未填写协议时，系统会自动补成 `https://`。</div>
 			</div>
+			<div class="pp-field">
+				<label for="domesticIntervalInput">Ping间隔</label>
+				<input class="pp-input" type="text" id="domesticIntervalInput" inputmode="numeric" placeholder="1">
+				<div class="pp-hint">国内目标的探测间隔，单位为秒，默认 1 秒。</div>
+			</div>
+
+			<div class="pp-field">
+				<label for="foreignIntervalInput">Ping间隔</label>
+				<input class="pp-input" type="text" id="foreignIntervalInput" inputmode="numeric" placeholder="1">
+				<div class="pp-hint">国外目标的探测间隔，单位为秒，默认 1 秒。</div>
+			</div>
 		</div>
 
 		<div class="pp-proxy-grid">
@@ -787,13 +798,17 @@
 		domestic: false,
 		foreign: false,
 		proxyType: false,
-		proxyPort: false
+		proxyPort: false,
+		domesticInterval: false,
+		foreignInterval: false
 	};
 	var lastServerValues = {
 		domestic: '',
 		foreign: '',
 		proxyType: 'socks5',
-		proxyPort: ''
+		proxyPort: '',
+		domesticInterval: '1',
+		foreignInterval: '1'
 	};
 
 	function $(id) {
@@ -850,6 +865,8 @@
 		$('foreignInput').disabled = disabled;
 		$('proxyTypeInput').disabled = disabled;
 		$('proxyPortInput').disabled = disabled;
+		$('domesticIntervalInput').disabled = disabled;
+		$('foreignIntervalInput').disabled = disabled;
 	}
 
 	function setMessage(text, type) {
@@ -865,6 +882,8 @@
 	function validateInputs() {
 		var foreign = $('foreignInput').value.trim();
 		var proxyPort = $('proxyPortInput').value.trim();
+		var domesticInterval = $('domesticIntervalInput').value.trim();
+		var foreignInterval = $('foreignIntervalInput').value.trim();
 
 		if (!hasAnyTarget()) {
 			return '请至少填写一个监控目标。';
@@ -885,6 +904,22 @@
 			}
 		}
 
+		if (domesticInterval !== '' && !/^\d+$/.test(domesticInterval)) {
+			return '国内 Ping间隔必须是大于 0 的整数秒。';
+		}
+
+		if (domesticInterval !== '' && Number(domesticInterval) < 1) {
+			return '国内 Ping间隔必须是大于 0 的整数秒。';
+		}
+
+		if (foreignInterval !== '' && !/^\d+$/.test(foreignInterval)) {
+			return '国外 Ping间隔必须是大于 0 的整数秒。';
+		}
+
+		if (foreignInterval !== '' && Number(foreignInterval) < 1) {
+			return '国外 Ping间隔必须是大于 0 的整数秒。';
+		}
+
 		return '';
 	}
 
@@ -893,6 +928,8 @@
 		inputDirty.foreign = false;
 		inputDirty.proxyType = false;
 		inputDirty.proxyPort = false;
+		inputDirty.domesticInterval = false;
+		inputDirty.foreignInterval = false;
 	}
 
 	function refreshDirtyState(key, id) {
@@ -908,6 +945,8 @@
 		refreshDirtyState('foreign', 'foreignInput');
 		refreshDirtyState('proxyType', 'proxyTypeInput');
 		refreshDirtyState('proxyPort', 'proxyPortInput');
+		refreshDirtyState('domesticInterval', 'domesticIntervalInput');
+		refreshDirtyState('foreignInterval', 'foreignIntervalInput');
 	}
 
 	function syncFieldValue(id, value, key) {
@@ -1016,7 +1055,9 @@
 			'&domestic_target=' + encodeURIComponent($('domesticInput').value.trim()) +
 			'&foreign_target=' + encodeURIComponent($('foreignInput').value.trim()) +
 			'&foreign_proxy_type=' + encodeURIComponent($('proxyTypeInput').value.trim()) +
-			'&foreign_proxy_port=' + encodeURIComponent($('proxyPortInput').value.trim());
+			'&foreign_proxy_port=' + encodeURIComponent($('proxyPortInput').value.trim()) +
+			'&domestic_interval=' + encodeURIComponent($('domesticIntervalInput').value.trim()) +
+			'&foreign_interval=' + encodeURIComponent($('foreignIntervalInput').value.trim());
 	}
 
 	function updateUI(data) {
@@ -1026,6 +1067,8 @@
 		var stale = false;
 		var proxyType = (data.foreign_proxy_type || 'socks5').trim() || 'socks5';
 		var proxyPort = (data.foreign_proxy_port || '').trim();
+		var domesticInterval = (data.domestic_interval || '1').trim() || '1';
+		var foreignInterval = (data.foreign_interval || '1').trim() || '1';
 
 		if (enabled && data.service_running && serverTime && updatedTime) {
 			stale = (serverTime.getTime() - updatedTime.getTime()) > staleThresholdMs;
@@ -1038,11 +1081,15 @@
 		lastServerValues.foreign = (data.foreign_target || '').trim();
 		lastServerValues.proxyType = proxyType;
 		lastServerValues.proxyPort = proxyPort;
+		lastServerValues.domesticInterval = domesticInterval;
+		lastServerValues.foreignInterval = foreignInterval;
 
 		syncFieldValue('domesticInput', data.domestic_target || '', 'domestic');
 		syncFieldValue('foreignInput', data.foreign_target || '', 'foreign');
 		syncFieldValue('proxyTypeInput', proxyType, 'proxyType');
 		syncFieldValue('proxyPortInput', proxyPort, 'proxyPort');
+		syncFieldValue('domesticIntervalInput', domesticInterval, 'domesticInterval');
+		syncFieldValue('foreignIntervalInput', foreignInterval, 'foreignInterval');
 
 		setTarget('domesticTarget', data.domestic_target || '');
 		setTarget('foreignTarget', data.foreign_target || '');
@@ -1280,6 +1327,22 @@
 
 	$('proxyPortInput').addEventListener('blur', function() {
 		refreshDirtyState('proxyPort', 'proxyPortInput');
+	});
+
+	$('domesticIntervalInput').addEventListener('input', function() {
+		inputDirty.domesticInterval = true;
+	});
+
+	$('domesticIntervalInput').addEventListener('blur', function() {
+		refreshDirtyState('domesticInterval', 'domesticIntervalInput');
+	});
+
+	$('foreignIntervalInput').addEventListener('input', function() {
+		inputDirty.foreignInterval = true;
+	});
+
+	$('foreignIntervalInput').addEventListener('blur', function() {
+		refreshDirtyState('foreignInterval', 'foreignIntervalInput');
 	});
 
 	document.addEventListener('visibilitychange', function() {

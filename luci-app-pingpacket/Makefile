@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-pingpacket
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=15
+PKG_RELEASE:=17
 PKG_LICENSE:=Apache-2.0
 
 include $(INCLUDE_DIR)/package.mk
@@ -55,6 +55,8 @@ ensure_config_file() { \
 		"	option foreign_proxy_type 'socks5'" \
 		"	option foreign_proxy_host '127.0.0.1'" \
 		"	option foreign_proxy_port '7891'" \
+		"	option domestic_interval '1'" \
+		"	option foreign_interval '1'" \
 		> "$$target"; \
 }; \
 if [ -n "$${IPKG_INSTROOT}" ]; then \
@@ -86,6 +88,14 @@ changed=0; \
 	fi; \
 	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_port)" ]; then \
 		uci set pingpacket.config.foreign_proxy_port='7891'; \
+		changed=1; \
+	fi; \
+	if [ -z "$$(uci -q get pingpacket.config.domestic_interval)" ]; then \
+		uci set pingpacket.config.domestic_interval='1'; \
+		changed=1; \
+	fi; \
+	if [ -z "$$(uci -q get pingpacket.config.foreign_interval)" ]; then \
+		uci set pingpacket.config.foreign_interval='1'; \
 		changed=1; \
 	fi; \
 	[ "$$changed" = "1" ] && uci commit pingpacket; \

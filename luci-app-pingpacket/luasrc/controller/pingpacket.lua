@@ -57,6 +57,25 @@ local function normalize_proxy_host(value)
 	return DEFAULT_PROXY_HOST
 end
 
+local function normalize_probe_interval(value)
+	value = trim(value)
+
+	if value == "" then
+		return "1"
+	end
+
+	if not value:match("^%d+$") then
+		return nil
+	end
+
+	local interval = tonumber(value)
+	if not interval or interval < 1 then
+		return nil
+	end
+
+	return tostring(interval)
+end
+
 local function write_json(payload)
 	local http = require("luci.http")
 	local jsonc = require("luci.jsonc")
@@ -313,6 +332,8 @@ function action_get_data()
 	local foreign_proxy_type = normalize_proxy_type(uci:get("pingpacket", "config", "foreign_proxy_type"))
 	local foreign_proxy_host = normalize_proxy_host(uci:get("pingpacket", "config", "foreign_proxy_host"))
 	local foreign_proxy_port = trim(uci:get("pingpacket", "config", "foreign_proxy_port"))
+	local domestic_interval = normalize_probe_interval(uci:get("pingpacket", "config", "domestic_interval")) or "1"
+	local foreign_interval = normalize_probe_interval(uci:get("pingpacket", "config", "foreign_interval")) or "1"
 
 	local result = {
 		enabled = enabled,
@@ -321,6 +342,8 @@ function action_get_data()
 		foreign_proxy_type = foreign_proxy_type,
 		foreign_proxy_host = foreign_proxy_host,
 		foreign_proxy_port = foreign_proxy_port,
+		domestic_interval = domestic_interval,
+		foreign_interval = foreign_interval,
 		server_time = os.date("%Y-%m-%d %H:%M:%S"),
 		start_time = read_start_time(),
 		updated_at = "",
@@ -396,12 +419,30 @@ function action_save_config()
 	local proxy_type = normalize_proxy_type(http.formvalue("foreign_proxy_type"))
 	local proxy_host = DEFAULT_PROXY_HOST
 	local proxy_port = normalize_proxy_port(http.formvalue("foreign_proxy_port"))
+	local domestic_interval = normalize_probe_interval(http.formvalue("domestic_interval"))
+	local foreign_interval = normalize_probe_interval(http.formvalue("foreign_interval"))
 	local request_source = trim(http.formvalue("request_source"))
 
 	if proxy_port == nil then
 		write_json({
 			success = false,
 			message = "代理端口必须是 1 到 65535 之间的数字。"
+		})
+		return
+	end
+
+	if domestic_interval == nil then
+		write_json({
+			success = false,
+			message = "国内 Ping间隔必须是大于 0 的整数秒。"
+		})
+		return
+	end
+
+	if foreign_interval == nil then
+		write_json({
+			success = false,
+			message = "国外 Ping间隔必须是大于 0 的整数秒。"
 		})
 		return
 	end
@@ -421,6 +462,8 @@ function action_save_config()
 	uci:set("pingpacket", "config", "foreign_proxy_type", proxy_type)
 	uci:set("pingpacket", "config", "foreign_proxy_host", proxy_host)
 	uci:set("pingpacket", "config", "foreign_proxy_port", proxy_port)
+	uci:set("pingpacket", "config", "domestic_interval", domestic_interval)
+	uci:set("pingpacket", "config", "foreign_interval", foreign_interval)
 	uci:commit("pingpacket")
 
 	sys.call("rm -f /tmp/luci-indexcache*")

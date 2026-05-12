@@ -23,6 +23,12 @@ domestic_min_rtt=""
 foreign_min_rtt=""
 domestic_max_rtt=""
 foreign_max_rtt=""
+domestic_last_probe_at=0
+foreign_last_probe_at=0
+domestic_last_fault_probe_at=0
+foreign_last_fault_probe_at=0
+domestic_last_stats_probe_at=0
+foreign_last_stats_probe_at=0
 
 log_rotate() {
 	[ -f "$LOG_FILE" ] || return 0
@@ -67,9 +73,12 @@ write_result_file() {
 	local success="$2"
 	local rtt="$3"
 	local detail="$4"
+	local probe_at="$5"
+
+	[ -n "$probe_at" ] || probe_at="$(date '+%s' 2>/dev/null || echo 0)"
 
 	mkdir -p "$(dirname "$path")"
-	printf '%s\n%s\n%s\n' "$success" "$rtt" "$detail" > "$path"
+	printf '%s\n%s\n%s\n%s\n' "$success" "$rtt" "$detail" "$probe_at" > "$path"
 }
 
 normalize_foreign_url() {
@@ -89,6 +98,8 @@ ensure_runtime_state() {
 	local proxy_type
 	local proxy_host
 	local proxy_port
+	local domestic_interval
+	local foreign_interval
 
 	mkdir -p "$RUN_DIR"
 
@@ -109,26 +120,157 @@ ensure_runtime_state() {
 	proxy_type="$(uci -q get pingpacket.config.foreign_proxy_type)"
 	proxy_host="$(uci -q get pingpacket.config.foreign_proxy_host)"
 	proxy_port="$(uci -q get pingpacket.config.foreign_proxy_port)"
+	domestic_interval="$(uci -q get pingpacket.config.domestic_interval)"
+	foreign_interval="$(uci -q get pingpacket.config.foreign_interval)"
 
 	[ -n "$proxy_type" ] || proxy_type="socks5"
 	[ -n "$proxy_host" ] || proxy_host="127.0.0.1"
 	[ -n "$proxy_port" ] || proxy_port="7891"
+	[ -n "$domestic_interval" ] || domestic_interval="1"
+	[ -n "$foreign_interval" ] || foreign_interval="1"
 
 	printf '%s\n' "$domestic" > "$RUN_DIR/config"
 	printf '%s\n' "$foreign" >> "$RUN_DIR/config"
 	printf '%s\n' "$proxy_type" >> "$RUN_DIR/config"
 	printf '%s\n' "$proxy_host" >> "$RUN_DIR/config"
 	printf '%s\n' "$proxy_port" >> "$RUN_DIR/config"
+	printf '%s\n' "$domestic_interval" >> "$RUN_DIR/config"
+	printf '%s\n' "$foreign_interval" >> "$RUN_DIR/config"
+}
+
+normalize_interval() {
+	local value="$1"
+
+	case "$value" in
+		""|*[!0-9]*)
+			printf '1\n'
+			return 0
+			;;
+	esac
+
+	if [ "$value" -ge 1 ] 2>/dev/null; then
+		printf '%s\n' "$value"
+	else
+		printf '1\n'
+	fi
+}
+
+should_probe_now() {
+	local last_probe_at="${1:-0}"
+	local interval="${2:-1}"
+	local now_ts="${3:-0}"
+
+	if [ "$last_probe_at" -le 0 ] 2>/dev/null; then
+		return 0
+	fi
+
+	if [ $((now_ts - last_probe_at)) -ge "$interval" ] 2>/dev/null; then
+		return 0
+	fi
+
+	return 1
+}
+
+is_ip_literal() {
+	case "$1" in
+		*:*|*.*)
+			printf '%s\n' "$1" | awk '
+				/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ { found=1 }
+				/^[0-9A-Fa-f:]+$/ { found=1 }
+				END { exit(found ? 0 : 1) }
+			'
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+resolve_target_ip() {
+	local target="$1"
+	local name="$2"
+	local cache_target_file="$RUN_DIR/${name}_resolved_target"
+	local cache_ip_file="$RUN_DIR/${name}_resolved_ip"
+	local cache_time_file="$RUN_DIR/${name}_resolved_at"
+	local cached_target
+	local cached_ip
+	local cached_time
+	local now
+	local resolved_ip=""
+
+	if is_ip_literal "$target"; then
+		printf '%s\n' "$target"
+		return 0
+	fi
+
+	cached_target="$(cat "$cache_target_file" 2>/dev/null || echo "")"
+	cached_ip="$(cat "$cache_ip_file" 2>/dev/null || echo "")"
+	cached_time="$(cat "$cache_time_file" 2>/dev/null || echo "")"
+	now="$(date '+%s' 2>/dev/null || echo 0)"
+
+	if [ "$cached_target" = "$target" ] && [ -n "$cached_ip" ] && [ -n "$cached_time" ]; then
+		if [ $((now - cached_time)) -lt 300 ] 2>/dev/null; then
+			printf '%s\n' "$cached_ip"
+			return 0
+		fi
+	fi
+
+	if command -v resolveip >/dev/null 2>&1; then
+		resolved_ip="$(
+			resolveip -4 -t 3 "$target" 2>/dev/null | awk '
+				{
+					for (i = 1; i <= NF; i++) {
+						if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+							print $i
+							exit
+						}
+					}
+				}
+			'
+		)"
+	fi
+
+	if [ -z "$resolved_ip" ] && command -v nslookup >/dev/null 2>&1; then
+		resolved_ip="$(
+			nslookup "$target" 2>/dev/null | awk '
+				{
+					for (i = 1; i <= NF; i++) {
+						if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+							print $i
+							exit
+						}
+					}
+				}
+			'
+		)"
+	fi
+
+	if [ -n "$resolved_ip" ]; then
+		printf '%s\n' "$target" > "$cache_target_file"
+		printf '%s\n' "$resolved_ip" > "$cache_ip_file"
+		printf '%s\n' "$now" > "$cache_time_file"
+		printf '%s\n' "$resolved_ip"
+		return 0
+	fi
+
+	if [ "$cached_target" = "$target" ] && [ -n "$cached_ip" ]; then
+		printf '%s\n' "$cached_ip"
+		return 0
+	fi
+
+	printf '%s\n' "$target"
 }
 
 do_ping() {
 	local target="$1"
 	local name="$2"
 	local result_file="$RUN_DIR/${name}_last_result"
+	local ping_target
 	local result
 	local rtt
 
-	result="$(ping -c 1 -W 2 "$target" 2>/dev/null)"
+	ping_target="$(resolve_target_ip "$target" "$name")"
+	result="$(ping -n -c 1 -W 2 "$ping_target" 2>/dev/null)"
 	if echo "$result" | grep -q "bytes from"; then
 		rtt="$(echo "$result" | sed -n 's/.*time=\([0-9.]*\).*/\1/p')"
 		write_result_file "$result_file" "1" "${rtt:-0}" ""
@@ -251,11 +393,57 @@ set_target_state() {
 	esac
 }
 
+get_processed_probe_at() {
+	local name="$1"
+	local kind="$2"
+
+	case "${name}:${kind}" in
+		domestic:fault)
+			processed_probe_at="$domestic_last_fault_probe_at"
+			;;
+		foreign:fault)
+			processed_probe_at="$foreign_last_fault_probe_at"
+			;;
+		domestic:stats)
+			processed_probe_at="$domestic_last_stats_probe_at"
+			;;
+		foreign:stats)
+			processed_probe_at="$foreign_last_stats_probe_at"
+			;;
+		*)
+			processed_probe_at=0
+			;;
+	esac
+}
+
+set_processed_probe_at() {
+	local name="$1"
+	local kind="$2"
+	local value="${3:-0}"
+
+	case "${name}:${kind}" in
+		domestic:fault)
+			domestic_last_fault_probe_at="$value"
+			;;
+		foreign:fault)
+			foreign_last_fault_probe_at="$value"
+			;;
+		domestic:stats)
+			domestic_last_stats_probe_at="$value"
+			;;
+		foreign:stats)
+			foreign_last_stats_probe_at="$value"
+			;;
+	esac
+}
+
 reset_target_state() {
 	local name="$1"
 
 	rm -f "$RUN_DIR/${name}_last_result"
 	set_target_state "$name" 0 0
+	set_processed_probe_at "$name" "fault" 0
+	set_processed_probe_at "$name" "stats" 0
 }
 
 update_target_faults() {
@@ -266,6 +454,7 @@ update_target_faults() {
 	local success="0"
 	local rtt=""
 	local detail=""
+	local probe_at=""
 
 	[ -n "$target" ] || {
 		reset_target_state "$name"
@@ -278,6 +467,12 @@ update_target_faults() {
 		success="$(sed -n '1p' "$result_file" 2>/dev/null)"
 		rtt="$(sed -n '2p' "$result_file" 2>/dev/null)"
 		detail="$(sed -n '3p' "$result_file" 2>/dev/null)"
+		probe_at="$(sed -n '4p' "$result_file" 2>/dev/null)"
+	fi
+
+	get_processed_probe_at "$name" "fault"
+	if [ -n "$probe_at" ] && [ "$probe_at" = "$processed_probe_at" ]; then
+		return 0
 	fi
 
 	if [ "$success" = "1" ]; then
@@ -286,6 +481,7 @@ update_target_faults() {
 		fi
 
 		set_target_state "$name" 0 0
+		set_processed_probe_at "$name" "fault" "${probe_at:-0}"
 		return 0
 	fi
 
@@ -298,6 +494,7 @@ update_target_faults() {
 	fault_open=1
 
 	set_target_state "$name" "$fail_count" "$fault_open"
+	set_processed_probe_at "$name" "fault" "${probe_at:-0}"
 }
 
 calc_stats() {
@@ -352,6 +549,7 @@ update_cumulative_stats() {
 	local result_file="$RUN_DIR/${name}_last_result"
 	local success="0"
 	local rtt=""
+	local probe_at=""
 	local total_samples=0
 	local success_count=0
 	local loss_count=0
@@ -385,6 +583,12 @@ update_cumulative_stats() {
 	if [ -f "$result_file" ]; then
 		success="$(sed -n '1p' "$result_file" 2>/dev/null)"
 		rtt="$(sed -n '2p' "$result_file" 2>/dev/null)"
+		probe_at="$(sed -n '4p' "$result_file" 2>/dev/null)"
+	fi
+
+	get_processed_probe_at "$name" "stats"
+	if [ -n "$probe_at" ] && [ "$probe_at" = "$processed_probe_at" ]; then
+		return 0
 	fi
 
 	if [ "$success" = "1" ]; then
@@ -425,17 +629,22 @@ update_cumulative_stats() {
 			foreign_max_rtt="$max_rtt"
 			;;
 	esac
+
+	set_processed_probe_at "$name" "stats" "${probe_at:-0}"
 }
 
 while true; do
 	ensure_runtime_state
 	START_TIME="$(cat "$START_TIME_FILE" 2>/dev/null || echo "")"
 	UPDATED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
+	NOW_TS="$(date '+%s' 2>/dev/null || echo 0)"
 	DOMESTIC_TARGET=""
 	FOREIGN_TARGET=""
 	FOREIGN_PROXY_TYPE="socks5"
 	FOREIGN_PROXY_HOST="127.0.0.1"
 	FOREIGN_PROXY_PORT="7891"
+	DOMESTIC_INTERVAL="1"
+	FOREIGN_INTERVAL="1"
 
 	if [ -f "$RUN_DIR/config" ]; then
 		DOMESTIC_TARGET="$(sed -n '1p' "$RUN_DIR/config")"
@@ -443,21 +652,37 @@ while true; do
 		FOREIGN_PROXY_TYPE="$(sed -n '3p' "$RUN_DIR/config")"
 		FOREIGN_PROXY_HOST="$(sed -n '4p' "$RUN_DIR/config")"
 		FOREIGN_PROXY_PORT="$(sed -n '5p' "$RUN_DIR/config")"
+		DOMESTIC_INTERVAL="$(sed -n '6p' "$RUN_DIR/config")"
+		FOREIGN_INTERVAL="$(sed -n '7p' "$RUN_DIR/config")"
 	fi
 
 	[ -n "$FOREIGN_PROXY_TYPE" ] || FOREIGN_PROXY_TYPE="socks5"
 	[ -n "$FOREIGN_PROXY_HOST" ] || FOREIGN_PROXY_HOST="127.0.0.1"
 	[ -n "$FOREIGN_PROXY_PORT" ] || FOREIGN_PROXY_PORT="7891"
+	DOMESTIC_INTERVAL="$(normalize_interval "$DOMESTIC_INTERVAL")"
+	FOREIGN_INTERVAL="$(normalize_interval "$FOREIGN_INTERVAL")"
 
 	child_pids=""
 	if [ -n "$DOMESTIC_TARGET" ]; then
-		do_ping "$DOMESTIC_TARGET" "domestic" &
-		child_pids="$!"
+		if should_probe_now "$domestic_last_probe_at" "$DOMESTIC_INTERVAL" "$NOW_TS"; then
+			do_ping "$DOMESTIC_TARGET" "domestic" &
+			child_pids="$!"
+			domestic_last_probe_at="$NOW_TS"
+		fi
+	else
+		domestic_last_probe_at=0
+		reset_target_state "domestic"
 	fi
 
 	if [ -n "$FOREIGN_TARGET" ]; then
-		do_proxy_curl "$FOREIGN_TARGET" "$FOREIGN_PROXY_TYPE" "$FOREIGN_PROXY_HOST" "$FOREIGN_PROXY_PORT" "foreign" &
-		child_pids="${child_pids:+$child_pids }$!"
+		if should_probe_now "$foreign_last_probe_at" "$FOREIGN_INTERVAL" "$NOW_TS"; then
+			do_proxy_curl "$FOREIGN_TARGET" "$FOREIGN_PROXY_TYPE" "$FOREIGN_PROXY_HOST" "$FOREIGN_PROXY_PORT" "foreign" &
+			child_pids="${child_pids:+$child_pids }$!"
+			foreign_last_probe_at="$NOW_TS"
+		fi
+	else
+		foreign_last_probe_at=0
+		reset_target_state "foreign"
 	fi
 
 	[ -n "$child_pids" ] && wait $child_pids 2>/dev/null
