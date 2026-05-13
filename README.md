@@ -51,9 +51,10 @@
 - 支持分别配置国内目标和国外目标
 - 国内目标使用本机 `ping` 进行 ICMP 探测
 - 国外目标使用 `curl` 通过代理发起请求探测，更接近代理实际访问质量
-- 国外目标支持输入域名或完整 URL
+- 国外测速 URL 支持输入域名或完整 URL
 - 未填写协议的国外目标会自动按 `https://` 处理
-- 支持配置国外探测代理类型、代理端口
+- 国外探测固定通过 `socks5h` 代理执行，只需配置代理端口
+- 国外探测仅将 HTTP `200/204` 视为成功
 - 国外代理主机默认固定为 OpenWrt 本机 `127.0.0.1`
 - 页面内可直接启用或关闭监控服务
 - 点击“保存并应用”后会保存配置；若当前监控已启用，会自动重启服务并按新配置重新开始统计
@@ -116,7 +117,7 @@
 
 - 国内：`www.baidu.com`
 - 国外：`https://www.google.com/generate_204`
-- 国外代理类型：`socks5`
+- 国外代理类型：`socks5h`
 - 国外代理端口：`7891`
 
 默认 UCI 结构如下：
@@ -126,7 +127,7 @@ config pingpacket 'config'
 	option enabled '0'
 	option domestic_target ''
 	option foreign_target 'https://www.google.com/generate_204'
-	option foreign_proxy_type 'socks5'
+	option foreign_proxy_type 'socks5h'
 	option foreign_proxy_host '127.0.0.1'
 	option foreign_proxy_port '7891'
 ```

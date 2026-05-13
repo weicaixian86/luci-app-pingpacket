@@ -123,7 +123,7 @@ ensure_runtime_state() {
 	domestic_interval="$(uci -q get pingpacket.config.domestic_interval)"
 	foreign_interval="$(uci -q get pingpacket.config.foreign_interval)"
 
-	[ -n "$proxy_type" ] || proxy_type="socks5"
+	proxy_type="socks5h"
 	[ -n "$proxy_host" ] || proxy_host="127.0.0.1"
 	[ -n "$proxy_port" ] || proxy_port="7891"
 	[ -n "$domestic_interval" ] || domestic_interval="1"
@@ -309,43 +309,19 @@ do_proxy_curl() {
 	url="$(normalize_foreign_url "$target")"
 	proxy_addr="${proxy_host}:${proxy_port}"
 
-	case "$proxy_type" in
-		http|https)
-			curl_result="$(
-				curl -k -I -L -sS --noproxy "" \
-					--connect-timeout 5 --max-time 10 \
-					-x "${proxy_type}://${proxy_addr}" \
-					-o /dev/null -w '%{http_code}:%{time_pretransfer}' \
-					"$url" 2>"$error_file"
-			)"
-			rc=$?
-			;;
-		socks5)
-			curl_result="$(
-				curl -k -I -L -sS --noproxy "" \
-					--connect-timeout 5 --max-time 10 \
-					--socks5 "$proxy_addr" \
-					-o /dev/null -w '%{http_code}:%{time_pretransfer}' \
-					"$url" 2>"$error_file"
-			)"
-			rc=$?
-			;;
-		socks5h|*)
-			curl_result="$(
-				curl -k -I -L -sS --noproxy "" \
-					--connect-timeout 5 --max-time 10 \
-					--socks5-hostname "$proxy_addr" \
-					-o /dev/null -w '%{http_code}:%{time_pretransfer}' \
-					"$url" 2>"$error_file"
-			)"
-			rc=$?
-			;;
-	esac
+	curl_result="$(
+		curl -k -I -L -sS --noproxy "" \
+			--connect-timeout 5 --max-time 10 \
+			--socks5-hostname "$proxy_addr" \
+			-o /dev/null -w '%{http_code}:%{time_pretransfer}' \
+			"$url" 2>"$error_file"
+	)"
+	rc=$?
 
 	http_code="$(printf '%s' "$curl_result" | awk -F ':' 'NR==1 { print $1 }')"
 	time_pretransfer="$(printf '%s' "$curl_result" | awk -F ':' 'NR==1 { print $2 }')"
 
-	if [ "$rc" -eq 0 ] && [ -n "$http_code" ] && [ "$http_code" != "000" ] && [ -n "$time_pretransfer" ]; then
+	if [ "$rc" -eq 0 ] && [ -n "$http_code" ] && [ -n "$time_pretransfer" ] && { [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; }; then
 		rtt_ms="$(awk -v sec="$time_pretransfer" 'BEGIN { printf "%.1f", (sec + 0) * 1000 }')"
 		write_result_file "$result_file" "1" "$rtt_ms" "curl 连接探测成功，HTTP ${http_code}"
 	else
@@ -640,7 +616,7 @@ while true; do
 	NOW_TS="$(date '+%s' 2>/dev/null || echo 0)"
 	DOMESTIC_TARGET=""
 	FOREIGN_TARGET=""
-	FOREIGN_PROXY_TYPE="socks5"
+	FOREIGN_PROXY_TYPE="socks5h"
 	FOREIGN_PROXY_HOST="127.0.0.1"
 	FOREIGN_PROXY_PORT="7891"
 	DOMESTIC_INTERVAL="1"
@@ -656,7 +632,7 @@ while true; do
 		FOREIGN_INTERVAL="$(sed -n '7p' "$RUN_DIR/config")"
 	fi
 
-	[ -n "$FOREIGN_PROXY_TYPE" ] || FOREIGN_PROXY_TYPE="socks5"
+	FOREIGN_PROXY_TYPE="socks5h"
 	[ -n "$FOREIGN_PROXY_HOST" ] || FOREIGN_PROXY_HOST="127.0.0.1"
 	[ -n "$FOREIGN_PROXY_PORT" ] || FOREIGN_PROXY_PORT="7891"
 	DOMESTIC_INTERVAL="$(normalize_interval "$DOMESTIC_INTERVAL")"

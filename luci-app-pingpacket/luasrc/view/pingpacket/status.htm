@@ -734,7 +734,7 @@
 		<div class="pp-panel-head">
 			<div>
 			<h3 class="pp-panel-title">监控设置</h3>
-			<div class="pp-panel-note">国外目标会通过本机代理发起 `curl` 请求统计延迟和丢包。代理主机固定为当前 OpenWrt 本机 `127.0.0.1`，你只需要设置代理类型和代理端口。未写协议的国外目标会自动按 `https://` 处理。</div>
+			<div class="pp-panel-note">国外测速 URL 会通过本机代理发起 `curl` 请求统计延迟和丢包。代理主机固定为当前 OpenWrt 本机 `127.0.0.1`，探测方式固定按 `SOCKS5H`，你只需要设置代理端口。未写协议的国外目标会自动按 `https://` 处理。</div>
 			</div>
 		</div>
 
@@ -746,9 +746,9 @@
 			</div>
 
 			<div class="pp-field">
-				<label for="foreignInput">国外 URL 或域名</label>
+				<label for="foreignInput">国外测速 URL</label>
 				<input class="pp-input" type="text" id="foreignInput" placeholder="例如：www.google.com 或 https://www.google.com/generate_204">
-				<div class="pp-hint">国外目标改为通过代理执行 curl 探测。未填写协议时，系统会自动补成 `https://`。</div>
+				<div class="pp-hint">国外测速固定通过 `SOCKS5H` 代理执行 `curl` 探测。未填写协议时，系统会自动补成 `https://`。</div>
 			</div>
 			<div class="pp-field">
 				<label for="domesticIntervalInput">Ping间隔</label>
@@ -767,18 +767,15 @@
 			<div class="pp-field">
 				<label for="proxyTypeInput">代理类型</label>
 				<select class="pp-select" id="proxyTypeInput">
-					<option value="http">HTTP</option>
-					<option value="https">HTTPS</option>
-					<option value="socks5">SOCKS5</option>
-					<option value="socks5h">SOCKS5H</option>
+					<option value="socks5h">SOCKS5H（固定）</option>
 				</select>
-				<div class="pp-hint">当前默认走 SOCKS5；若希望域名解析也通过代理，可改选 SOCKS5H。</div>
+				<div class="pp-hint">当前固定按 `SOCKS5H` 代理探测，域名解析也交给代理处理。</div>
 			</div>
 
 			<div class="pp-field">
 				<label for="proxyPortInput">代理端口</label>
 				<input class="pp-input" type="text" id="proxyPortInput" inputmode="numeric" placeholder="例如：7890">
-				<div class="pp-hint">Openclash HTTP端口7890 SOCKS5端口7891，Sing-box HTTP端口8080 SOCKS5端口1080，具体端口自行查询代理插件，必须是 1 到 65535 的数字。</div>
+				<div class="pp-hint">OpenClash SOCKS5 端口常见为 7891，Sing-box SOCKS5 端口常见为 1080，具体端口自行查询代理插件，必须是 1 到 65535 的数字。</div>
 			</div>
 		</div>
 
@@ -819,7 +816,7 @@
 	var lastServerValues = {
 		domestic: '',
 		foreign: '',
-		proxyType: 'socks5',
+		proxyType: 'socks5h',
 		proxyPort: '',
 		domesticInterval: '1',
 		foreignInterval: '1'
@@ -1058,10 +1055,10 @@
 
 	function buildProxySummary(type, port) {
 		if (!port) {
-			return '探测方式：代理 curl（本机代理端口未配置）';
+			return '探测方式：代理 curl（固定 SOCKS5H，本机代理端口未配置）';
 		}
 
-		return '探测方式：代理 curl，经由本机 ' + type.toUpperCase() + ' 端口 ' + port;
+		return '探测方式：代理 curl，固定经由本机 SOCKS5H 端口 ' + port;
 	}
 
 	function buildPayload(enabled, requestSource) {
@@ -1081,7 +1078,7 @@
 		var serverTime = parseDateTime(data.server_time || '');
 		var updatedTime = parseDateTime(data.updated_at || '');
 		var stale = false;
-		var proxyType = (data.foreign_proxy_type || 'socks5').trim() || 'socks5';
+		var proxyType = (data.foreign_proxy_type || 'socks5h').trim() || 'socks5h';
 		var proxyPort = (data.foreign_proxy_port || '').trim();
 		var domesticInterval = (data.domestic_interval || '1').trim() || '1';
 		var foreignInterval = (data.foreign_interval || '1').trim() || '1';

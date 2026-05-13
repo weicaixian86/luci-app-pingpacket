@@ -52,11 +52,12 @@ start_service() {
 	config_get enabled config enabled "0"
 	config_get domestic config domestic_target ""
 	config_get foreign config foreign_target ""
-	config_get proxy_type config foreign_proxy_type "socks5"
+	config_get proxy_type config foreign_proxy_type "socks5h"
 	config_get proxy_host config foreign_proxy_host "127.0.0.1"
 	config_get proxy_port config foreign_proxy_port "7891"
 	config_get domestic_interval config domestic_interval "1"
 	config_get foreign_interval config foreign_interval "1"
+	proxy_type="socks5h"
 
 	[ "$enabled" = "1" ] || return 0
 	[ -n "$domestic" ] || [ -n "$foreign" ] || return 0

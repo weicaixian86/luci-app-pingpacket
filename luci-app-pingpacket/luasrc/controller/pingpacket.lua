@@ -3,13 +3,6 @@ module("luci.controller.pingpacket", package.seeall)
 local LOG_FILE = "/tmp/pingpacket.log"
 local CPU_STATE_FILE = "/tmp/pingpacket_cpu_state"
 local DEFAULT_PROXY_HOST = "127.0.0.1"
-local VALID_PROXY_TYPES = {
-	http = true,
-	https = true,
-	socks5 = true,
-	socks5h = true
-}
-
 local function trim(value)
 	return (value or ""):gsub("%c", ""):match("^%s*(.-)%s*$") or ""
 end
@@ -19,13 +12,7 @@ local function normalize_enabled(value)
 end
 
 local function normalize_proxy_type(value)
-	value = trim(value)
-
-	if VALID_PROXY_TYPES[value] then
-		return value
-	end
-
-	return "socks5"
+	return "socks5h"
 end
 
 local function normalize_proxy_port(value)

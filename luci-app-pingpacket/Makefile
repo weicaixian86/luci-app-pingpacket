@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-pingpacket
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=18
+PKG_RELEASE:=19
 PKG_LICENSE:=Apache-2.0
 
 include $(INCLUDE_DIR)/package.mk
@@ -52,7 +52,7 @@ ensure_config_file() { \
 		"	option enabled '0'" \
 		"	option domestic_target ''" \
 		"	option foreign_target 'https://www.google.com/generate_204'" \
-		"	option foreign_proxy_type 'socks5'" \
+		"	option foreign_proxy_type 'socks5h'" \
 		"	option foreign_proxy_host '127.0.0.1'" \
 		"	option foreign_proxy_port '7891'" \
 		"	option domestic_interval '1'" \
@@ -78,8 +78,8 @@ changed=0; \
 		uci set pingpacket.config.foreign_target='https://www.google.com/generate_204'; \
 		changed=1; \
 	fi; \
-	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_type)" ]; then \
-		uci set pingpacket.config.foreign_proxy_type='socks5'; \
+	if [ "$$(uci -q get pingpacket.config.foreign_proxy_type)" != 'socks5h' ]; then \
+		uci set pingpacket.config.foreign_proxy_type='socks5h'; \
 		changed=1; \
 	fi; \
 	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_host)" ]; then \
