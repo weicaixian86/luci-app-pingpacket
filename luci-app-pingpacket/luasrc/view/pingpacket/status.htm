@@ -757,9 +757,9 @@
 			</div>
 
 			<div class="pp-field">
-				<label for="foreignIntervalInput">Ping间隔</label>
-				<input class="pp-input" type="text" id="foreignIntervalInput" inputmode="numeric" placeholder="1">
-				<div class="pp-hint">国外目标的探测间隔，单位为秒，默认 1 秒。</div>
+				<label for="foreignIntervalInput">测速间隔</label>
+				<input class="pp-input" type="text" id="foreignIntervalInput" inputmode="numeric" placeholder="5">
+				<div class="pp-hint">国外目标的探测间隔，单位为秒，默认 5 秒。</div>
 			</div>
 		</div>
 
@@ -819,7 +819,7 @@
 		proxyType: 'socks5h',
 		proxyPort: '',
 		domesticInterval: '1',
-		foreignInterval: '1'
+		foreignInterval: '5'
 	};
 
 	function $(id) {
@@ -1081,7 +1081,7 @@
 		var proxyType = (data.foreign_proxy_type || 'socks5h').trim() || 'socks5h';
 		var proxyPort = (data.foreign_proxy_port || '').trim();
 		var domesticInterval = (data.domestic_interval || '1').trim() || '1';
-		var foreignInterval = (data.foreign_interval || '1').trim() || '1';
+		var foreignInterval = (data.foreign_interval || '5').trim() || '5';
 
 		if (enabled && data.service_running && serverTime && updatedTime) {
 			stale = (serverTime.getTime() - updatedTime.getTime()) > staleThresholdMs;

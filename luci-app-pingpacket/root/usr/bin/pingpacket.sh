@@ -127,7 +127,7 @@ ensure_runtime_state() {
 	[ -n "$proxy_host" ] || proxy_host="127.0.0.1"
 	[ -n "$proxy_port" ] || proxy_port="7891"
 	[ -n "$domestic_interval" ] || domestic_interval="1"
-	[ -n "$foreign_interval" ] || foreign_interval="1"
+	[ -n "$foreign_interval" ] || foreign_interval="5"
 
 	printf '%s\n' "$domestic" > "$RUN_DIR/config"
 	printf '%s\n' "$foreign" >> "$RUN_DIR/config"
@@ -620,7 +620,7 @@ while true; do
 	FOREIGN_PROXY_HOST="127.0.0.1"
 	FOREIGN_PROXY_PORT="7891"
 	DOMESTIC_INTERVAL="1"
-	FOREIGN_INTERVAL="1"
+	FOREIGN_INTERVAL="5"
 
 	if [ -f "$RUN_DIR/config" ]; then
 		DOMESTIC_TARGET="$(sed -n '1p' "$RUN_DIR/config")"
@@ -635,6 +635,7 @@ while true; do
 	FOREIGN_PROXY_TYPE="socks5h"
 	[ -n "$FOREIGN_PROXY_HOST" ] || FOREIGN_PROXY_HOST="127.0.0.1"
 	[ -n "$FOREIGN_PROXY_PORT" ] || FOREIGN_PROXY_PORT="7891"
+	[ -n "$FOREIGN_INTERVAL" ] || FOREIGN_INTERVAL="5"
 	DOMESTIC_INTERVAL="$(normalize_interval "$DOMESTIC_INTERVAL")"
 	FOREIGN_INTERVAL="$(normalize_interval "$FOREIGN_INTERVAL")"
 

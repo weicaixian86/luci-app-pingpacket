@@ -63,6 +63,16 @@ local function normalize_probe_interval(value)
 	return tostring(interval)
 end
 
+local function normalize_foreign_probe_interval(value)
+	value = trim(value)
+
+	if value == "" then
+		return "5"
+	end
+
+	return normalize_probe_interval(value)
+end
+
 local function write_json(payload)
 	local http = require("luci.http")
 	local jsonc = require("luci.jsonc")
@@ -320,7 +330,7 @@ function action_get_data()
 	local foreign_proxy_host = normalize_proxy_host(uci:get("pingpacket", "config", "foreign_proxy_host"))
 	local foreign_proxy_port = trim(uci:get("pingpacket", "config", "foreign_proxy_port"))
 	local domestic_interval = normalize_probe_interval(uci:get("pingpacket", "config", "domestic_interval")) or "1"
-	local foreign_interval = normalize_probe_interval(uci:get("pingpacket", "config", "foreign_interval")) or "1"
+	local foreign_interval = normalize_foreign_probe_interval(uci:get("pingpacket", "config", "foreign_interval")) or "5"
 
 	local result = {
 		enabled = enabled,
@@ -409,7 +419,7 @@ function action_save_config()
 	local proxy_host = DEFAULT_PROXY_HOST
 	local proxy_port = normalize_proxy_port(http.formvalue("foreign_proxy_port"))
 	local domestic_interval = normalize_probe_interval(http.formvalue("domestic_interval"))
-	local foreign_interval = normalize_probe_interval(http.formvalue("foreign_interval"))
+	local foreign_interval = normalize_foreign_probe_interval(http.formvalue("foreign_interval"))
 	local request_source = trim(http.formvalue("request_source"))
 
 	if proxy_port == nil then
