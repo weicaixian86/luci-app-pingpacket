@@ -354,6 +354,7 @@ function action_get_data()
 			min = "0.0",
 			max = "0.0",
 			loss_rate = "0.0",
+			loss_count = 0,
 			count = 0,
 			samples = 0
 		},
@@ -362,6 +363,7 @@ function action_get_data()
 			min = "0.0",
 			max = "0.0",
 			loss_rate = "0.0",
+			loss_count = 0,
 			count = 0,
 			samples = 0
 		}

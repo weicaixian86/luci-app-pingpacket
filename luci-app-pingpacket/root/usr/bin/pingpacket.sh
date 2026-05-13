@@ -539,8 +539,8 @@ calc_stats() {
 		loss_rate="$(awk -v loss="$loss_count" -v total="$total_samples" 'BEGIN { printf "%.1f", loss * 100.0 / total }')"
 	fi
 
-	printf '{"avg":"%s","min":"%s","max":"%s","loss_rate":"%s","count":%d,"samples":%d}' \
-		"$avg" "$min" "$max" "$loss_rate" "$success_count" "$total_samples"
+	printf '{"avg":"%s","min":"%s","max":"%s","loss_rate":"%s","loss_count":%d,"count":%d,"samples":%d}' \
+		"$avg" "$min" "$max" "$loss_rate" "$loss_count" "$success_count" "$total_samples"
 }
 
 update_cumulative_stats() {

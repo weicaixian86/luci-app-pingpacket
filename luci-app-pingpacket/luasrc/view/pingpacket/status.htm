@@ -305,7 +305,7 @@
 
 .pp-stats {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 	gap: 12px;
 }
 
@@ -667,6 +667,13 @@
 						<span class="pp-unit">%</span>
 					</div>
 				</div>
+				<div class="pp-stat">
+					<span class="pp-stat-label">丢包数</span>
+					<div class="pp-stat-number">
+						<span id="domesticLossCount">0</span>
+						<span class="pp-unit">次</span>
+					</div>
+				</div>
 			</div>
 		</div>
 
@@ -710,6 +717,13 @@
 					<div class="pp-stat-number">
 						<span id="foreignLoss">--</span>
 						<span class="pp-unit">%</span>
+					</div>
+				</div>
+				<div class="pp-stat">
+					<span class="pp-stat-label">丢包数</span>
+					<div class="pp-stat-number">
+						<span id="foreignLossCount">0</span>
+						<span class="pp-unit">次</span>
 					</div>
 				</div>
 			</div>
@@ -769,7 +783,7 @@
 		</div>
 
 		<div class="pp-actions">
-			<div class="pp-action-copy">平均延迟、最低延迟、最高延迟、丢包率和样本数均为本次服务启用后的累计统计值。停止或重启服务后，统计会重新开始；长期运行时样本数会持续增长并完整显示。</div>
+			<div class="pp-action-copy">平均延迟、最低延迟、最高延迟、丢包率、丢包数和样本数均为本次服务启用后的累计统计值。停止或重启服务后，统计会重新开始；长期运行时样本数会持续增长并完整显示。</div>
 			<div class="pp-action-right">
 				<button class="pp-button pp-button-secondary hidden" id="restartButton" onclick="restartService()">重新启动服务</button>
 				<button class="pp-button" id="saveButton" onclick="saveConfig()">保存并应用</button>
@@ -1005,6 +1019,7 @@
 	function setStat(prefix, stats) {
 		var successCount = Number(stats && stats.count || 0);
 		var sampleCount = Number(stats && stats.samples || 0);
+		var lossCount = Number(stats && stats.loss_count || 0);
 		var avg = successCount > 0 ? stats.avg : '--';
 		var min = successCount > 0 ? stats.min : '--';
 		var max = successCount > 0 ? stats.max : '--';
@@ -1016,6 +1031,7 @@
 		$(prefix + 'Min').textContent = min;
 		$(prefix + 'Max').textContent = max;
 		$(prefix + 'Loss').textContent = loss;
+		$(prefix + 'LossCount').textContent = String(lossCount);
 		$(prefix + 'Samples').textContent = String(sampleCount);
 
 		lossCard.className = 'pp-stat loss';
