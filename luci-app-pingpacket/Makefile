@@ -1,27 +1,15 @@
 include $(TOPDIR)/rules.mk
 
+LUCI_TITLE:=LuCI web interface for Pingpacket monitoring
+LUCI_DEPENDS:=+luci-base +luci-lua-runtime +luci-compat +curl
+LUCI_PKGARCH:=all
+
 PKG_NAME:=luci-app-pingpacket
 PKG_VERSION:=1.0.0
 PKG_RELEASE:=20
 PKG_LICENSE:=Apache-2.0
 
-include $(INCLUDE_DIR)/package.mk
-
-define Package/$(PKG_NAME)
-  SECTION:=luci
-  CATEGORY:=LuCI
-  SUBMENU:=3. Applications
-  TITLE:=Pingpacket
-  PKGARCH:=all
-  DEPENDS:=+luci-base +luci-lua-runtime +luci-compat +curl
-endef
-
-define Package/$(PKG_NAME)/description
- LuCI web interface for Pingpacket monitoring.
-endef
-
-define Build/Compile
-endef
+include $(TOPDIR)/feeds/luci/luci.mk
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
@@ -30,6 +18,9 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/pingpacket
 	$(INSTALL_DATA) ./luasrc/view/pingpacket/status.htm $(1)/usr/lib/lua/luci/view/pingpacket/status.htm
 	$(INSTALL_DATA) ./luasrc/view/pingpacket/logs.htm $(1)/usr/lib/lua/luci/view/pingpacket/logs.htm
+
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) ./root/etc/config/pingpacket $(1)/etc/config/pingpacket
 
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./root/etc/init.d/pingpacket $(1)/etc/init.d/pingpacket
@@ -43,74 +34,22 @@ define Package/$(PKG_NAME)/install
 endef
 
 define Package/$(PKG_NAME)/postinst
-ensure_config_file() { \
-	local target="$$1"; \
-	[ -f "$$target" ] && return 0; \
-	mkdir -p "$$(dirname "$$target")"; \
-	printf "%s\n" \
-		"config pingpacket 'config'" \
-		"	option enabled '0'" \
-		"	option domestic_target ''" \
-		"	option foreign_target 'https://www.google.com/generate_204'" \
-		"	option foreign_proxy_type 'socks5h'" \
-		"	option foreign_proxy_host '127.0.0.1'" \
-		"	option foreign_proxy_port '7891'" \
-		"	option domestic_interval '1'" \
-		"	option foreign_interval '5'" \
-		> "$$target"; \
-}; \
-if [ -n "$${IPKG_INSTROOT}" ]; then \
-	ensure_config_file "$${IPKG_INSTROOT}/etc/config/pingpacket"; \
-	exit 0; \
-fi; \
-[ ! -f /etc/config/pingpacket ] && [ -f /etc/config/pingpacket-opkg ] && mv /etc/config/pingpacket-opkg /etc/config/pingpacket; \
-ensure_config_file "/etc/config/pingpacket"; \
-if [ -f /etc/config/pingpacket-opkg ]; then \
-	rm -f /etc/config/pingpacket-opkg; \
-fi; \
-changed=0; \
-	if [ -z "$$(uci -q get pingpacket.config.domestic_target)" ]; then \
-		uci set pingpacket.config.domestic_target='www.baidu.com'; \
-		changed=1; \
-	fi; \
-	current_foreign_target="$$(uci -q get pingpacket.config.foreign_target)"; \
-	if [ -z "$$current_foreign_target" ] || [ "$$current_foreign_target" = "www.google.com" ]; then \
-		uci set pingpacket.config.foreign_target='https://www.google.com/generate_204'; \
-		changed=1; \
-	fi; \
-	if [ "$$(uci -q get pingpacket.config.foreign_proxy_type)" != 'socks5h' ]; then \
-		uci set pingpacket.config.foreign_proxy_type='socks5h'; \
-		changed=1; \
-	fi; \
-	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_host)" ]; then \
-		uci set pingpacket.config.foreign_proxy_host='127.0.0.1'; \
-		changed=1; \
-	fi; \
-	if [ -z "$$(uci -q get pingpacket.config.foreign_proxy_port)" ]; then \
-		uci set pingpacket.config.foreign_proxy_port='7891'; \
-		changed=1; \
-	fi; \
-	if [ -z "$$(uci -q get pingpacket.config.domestic_interval)" ]; then \
-		uci set pingpacket.config.domestic_interval='1'; \
-		changed=1; \
-	fi; \
-	if [ -z "$$(uci -q get pingpacket.config.foreign_interval)" ]; then \
-		uci set pingpacket.config.foreign_interval='5'; \
-		changed=1; \
-	fi; \
-	[ "$$changed" = "1" ] && uci commit pingpacket; \
-	rm -f /tmp/luci-indexcache.*; \
-	rm -rf /tmp/luci-modulecache/; \
-	/etc/init.d/rpcd reload 2>/dev/null; \
-	exit 0
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+rm -f /tmp/luci-indexcache.*
+rm -rf /tmp/luci-modulecache/
+/etc/init.d/rpcd reload 2>/dev/null
+exit 0
 endef
 
 define Package/$(PKG_NAME)/prerm
-[ -n "$${IPKG_INSTROOT}" ] || { \
-	[ -f /etc/init.d/pingpacket ] && /bin/sh /etc/init.d/pingpacket disable 2>/dev/null; \
-	[ -f /etc/init.d/pingpacket ] && /bin/sh /etc/init.d/pingpacket stop 2>/dev/null; \
-	exit 0; \
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+[ -f /etc/init.d/pingpacket ] && {
+	/etc/init.d/pingpacket disable 2>/dev/null
+	/etc/init.d/pingpacket stop 2>/dev/null
 }
+exit 0
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
