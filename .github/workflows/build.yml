@@ -1,4 +1,4 @@
-name: Build luci-app-pingpacket for OpenWrt 24.10 x86_64
+name: Build luci-app-pingpacket for OpenWrt
 
 on:
   workflow_dispatch:
@@ -17,36 +17,49 @@ permissions:
 
 env:
   TZ: Asia/Shanghai
-  OPENWRT_VERSION: "24.10.0"
-  OPENWRT_TARGET: "x86/64"
-  SDK_URL: "https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
-  PACKAGE_NAME: "luci-app-pingpacket"
+  PACKAGE_NAME: luci-app-pingpacket
 
 jobs:
   build:
-    name: Build and Release IPK
+    name: Build ${{ matrix.openwrt_version }} ${{ matrix.target_slug }} ${{ matrix.package_ext }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - openwrt_version: "24.10.0"
+            openwrt_target: "x86/64"
+            target_slug: "x86_64"
+            sdk_url: "https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
+            package_ext: "ipk"
+            artifact_name: "openwrt-24.10.0-x86_64-ipk"
+          - openwrt_version: "25.12.0"
+            openwrt_target: "x86/64"
+            target_slug: "x86_64"
+            sdk_url: "https://downloads.openwrt.org/releases/25.12.0/targets/x86/64/openwrt-sdk-25.12.0-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst"
+            package_ext: "apk"
+            artifact_name: "openwrt-25.12.0-x86_64-apk"
+    env:
+      OPENWRT_VERSION: ${{ matrix.openwrt_version }}
+      OPENWRT_TARGET: ${{ matrix.openwrt_target }}
+      TARGET_SLUG: ${{ matrix.target_slug }}
+      SDK_URL: ${{ matrix.sdk_url }}
+      PACKAGE_EXT: ${{ matrix.package_ext }}
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set build metadata
+      - name: Set package version from release tag
         shell: bash
         run: |
-          BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S %Z')"
-          RELEASE_DESCRIPTION="${{ github.event.inputs.release_description }}"
-          echo "BUILD_TIME=$BUILD_TIME" >> "$GITHUB_ENV"
-          {
-            echo "RELEASE_BODY<<EOF"
-            printf '%s\n' "$RELEASE_DESCRIPTION"
-            if [ -n "$RELEASE_DESCRIPTION" ]; then
-              printf '\n'
-            fi
-            printf 'Build time: %s\n' "$BUILD_TIME"
-            printf 'OpenWrt: %s (%s)\n' "$OPENWRT_VERSION" "$OPENWRT_TARGET"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
+          RAW_TAG="${{ github.event.inputs.release_tag }}"
+          VERSION="${RAW_TAG#v}"
+          VERSION="${VERSION#V}"
+          test -n "$RAW_TAG"
+          test -n "$VERSION"
+          echo "RAW_TAG=$RAW_TAG" >> "$GITHUB_ENV"
+          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Install build dependencies
         shell: bash
@@ -90,17 +103,10 @@ jobs:
           echo "Resolved SDK_PACKAGE_DIR=$SDK_PACKAGE_DIR"
           echo "Resolved PACKAGE_BUILD_TARGET=$PACKAGE_BUILD_TARGET"
 
-      - name: Apply package version from release tag
+      - name: Apply package version to Makefile
         shell: bash
         run: |
-          RAW_TAG="${{ github.event.inputs.release_tag }}"
-          VERSION="${RAW_TAG#v}"
-          VERSION="${VERSION#V}"
-          test -n "$RAW_TAG"
-          test -n "$VERSION"
-          echo "RAW_TAG=$RAW_TAG" >> "$GITHUB_ENV"
-          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
-          sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
+          sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${PACKAGE_VERSION}/" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
           grep -E "^PKG_NAME:=|^PKG_VERSION:=|^PKG_RELEASE:=" "$GITHUB_WORKSPACE/${APP_SOURCE_DIR}/Makefile"
 
       - name: Stage package into SDK package dir
@@ -126,7 +132,7 @@ jobs:
           cd sdk
           make defconfig
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
-          make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee build-${PACKAGE_NAME}.log
+          make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"
 
       - name: Dump package build logs on failure
         if: failure()
@@ -137,27 +143,60 @@ jobs:
           echo "===== possible package logs ====="
           find sdk/build_dir -type f \( -name "*.log" -o -name "config.err" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) | sort || true
 
-      - name: Collect IPK files
+      - name: Collect package files
         shell: bash
         run: |
           mkdir -p output
-          find sdk/bin/packages -type f -name "${PACKAGE_NAME}_*.ipk" -exec cp -f {} output/ \;
-          test -n "$(find output -maxdepth 1 -type f -name '*.ipk')"
-          for file in output/*.ipk; do
-            base="$(basename "$file")"
-            new_name="$(echo "$base" | sed -E "s/^${PACKAGE_NAME}_([^-]+)-r([0-9]+)_all\.ipk$/${PACKAGE_NAME}_${RAW_TAG}-r\2_all.ipk/")"
-            if [ "$new_name" != "$base" ]; then
-              mv -f "$file" "output/$new_name"
-            fi
-          done
+          mapfile -t package_files < <(find sdk/bin -type f \( -name "${PACKAGE_NAME}_*.${PACKAGE_EXT}" -o -name "${PACKAGE_NAME}-*.${PACKAGE_EXT}" \) | sort)
+          test "${#package_files[@]}" -gt 0
+          main_package="${package_files[0]}"
+          output_name="${PACKAGE_NAME}_${RAW_TAG}_all.${PACKAGE_EXT}"
+          cp -f "$main_package" "output/$output_name"
           ls -lah output
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openwrt-24.10-x86_64-ipk
-          path: output/*.ipk
+          name: ${{ matrix.artifact_name }}
+          path: output/*.${{ matrix.package_ext }}
           if-no-files-found: error
+
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Prepare release files
+        shell: bash
+        run: |
+          mkdir -p release-dist
+          find release-assets -type f -exec cp -f {} release-dist/ \;
+          test -n "$(find release-dist -maxdepth 1 -type f | head -n 1)"
+          ls -lah release-dist
+
+      - name: Set release metadata
+        shell: bash
+        run: |
+          BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+          RELEASE_DESCRIPTION="${{ github.event.inputs.release_description }}"
+          {
+            echo "RELEASE_BODY<<EOF"
+            if [ -n "$RELEASE_DESCRIPTION" ]; then
+              printf '%s\n\n' "$RELEASE_DESCRIPTION"
+            fi
+            printf 'Build time: %s\n' "$BUILD_TIME"
+            printf 'Artifacts:\n'
+            find release-dist -maxdepth 1 -type f -printf '%f\n' | sort | while IFS= read -r file; do
+              printf -- '- %s\n' "$file"
+            done
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
       - name: Remove existing release
         uses: dev-drprasad/delete-tag-and-release@v1.1
@@ -168,13 +207,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
-      - name: Publish Release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.release_tag }}
           name: ${{ github.event.inputs.release_tag }}
           body: ${{ env.RELEASE_BODY }}
-          files: output/*.ipk
+          files: release-dist/*
           draft: false
           prerelease: false
           generate_release_notes: false
