@@ -86,13 +86,11 @@ jobs:
         shell: bash
         run: |
           cd sdk
-          if [ ! -f feeds.conf.default ]; then
-            FEEDS_BRANCH="openwrt-${OPENWRT_VERSION%.*}"
-            {
-              printf 'src-git packages https://git.openwrt.org/feed/packages.git;%s\n' "$FEEDS_BRANCH"
-              printf 'src-git luci https://git.openwrt.org/project/luci.git;%s\n' "$FEEDS_BRANCH"
-            } > feeds.conf.default
-          fi
+          FEEDS_BRANCH="openwrt-${OPENWRT_VERSION%.*}"
+          {
+            printf 'src-git packages https://git.openwrt.org/feed/packages.git;%s\n' "$FEEDS_BRANCH"
+            printf 'src-git luci https://git.openwrt.org/project/luci.git;%s\n' "$FEEDS_BRANCH"
+          } > feeds.conf.default
           ./scripts/feeds update packages luci
           ./scripts/feeds install curl
           ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
@@ -145,7 +143,12 @@ jobs:
         run: |
           set -o pipefail
           cd sdk
+          {
+            echo "CONFIG_PACKAGE_liblua=y"
+            echo "CONFIG_PACKAGE_lua=y"
+          } >> .config
           make defconfig
+          make package/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
           if ! make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"; then
             echo "Parallel build failed; retrying serially so the real error is visible."
@@ -156,10 +159,12 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          echo "===== build-lua.log ====="
+          test -f "sdk/build-lua.log" && tail -n 300 "sdk/build-lua.log" || true
           echo "===== build-${PACKAGE_NAME}.log ====="
           test -f "sdk/build-${PACKAGE_NAME}.log" && tail -n 500 "sdk/build-${PACKAGE_NAME}.log" || true
           echo "===== likely errors ====="
-          test -f "sdk/build-${PACKAGE_NAME}.log" && grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" "sdk/build-${PACKAGE_NAME}.log" | tail -n 120 || true
+          grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" sdk/build-lua.log "sdk/build-${PACKAGE_NAME}.log" 2>/dev/null | tail -n 120 || true
           echo "===== possible package logs ====="
           find sdk/build_dir -type f \( -name "*.log" -o -name "config.err" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) | sort || true
 
