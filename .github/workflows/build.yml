@@ -147,7 +147,10 @@ jobs:
           cd sdk
           make defconfig
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
-          make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"
+          if ! make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"; then
+            echo "Parallel build failed; retrying serially so the real error is visible."
+            make "$PACKAGE_BUILD_TARGET" V=sc -j1 2>&1 | tee -a "build-${PACKAGE_NAME}.log"
+          fi
 
       - name: Dump package build logs on failure
         if: failure()
@@ -155,6 +158,8 @@ jobs:
         run: |
           echo "===== build-${PACKAGE_NAME}.log ====="
           test -f "sdk/build-${PACKAGE_NAME}.log" && tail -n 500 "sdk/build-${PACKAGE_NAME}.log" || true
+          echo "===== likely errors ====="
+          test -f "sdk/build-${PACKAGE_NAME}.log" && grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" "sdk/build-${PACKAGE_NAME}.log" | tail -n 120 || true
           echo "===== possible package logs ====="
           find sdk/build_dir -type f \( -name "*.log" -o -name "config.err" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) | sort || true
 
