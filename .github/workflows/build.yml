@@ -94,7 +94,7 @@ jobs:
           ./scripts/feeds update packages luci
           ./scripts/feeds install curl
           ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
-          if [ ! -f package/utils/lua/Makefile ]; then
+          if [ ! -f package/utils/lua/Makefile ] || [ ! -f package/utils/ucode/Makefile ]; then
             git clone \
               --depth 1 \
               --filter=blob:none \
@@ -102,9 +102,10 @@ jobs:
               --branch "$FEEDS_BRANCH" \
               https://github.com/openwrt/openwrt.git \
               ../openwrt-source
-            git -C ../openwrt-source sparse-checkout set package/utils/lua
+            git -C ../openwrt-source sparse-checkout set package/utils/lua package/utils/ucode
             mkdir -p package/utils
-            cp -a ../openwrt-source/package/utils/lua package/utils/
+            [ -f package/utils/lua/Makefile ] || cp -a ../openwrt-source/package/utils/lua package/utils/
+            [ -f package/utils/ucode/Makefile ] || cp -a ../openwrt-source/package/utils/ucode package/utils/
           fi
 
       - name: Detect package source dir
@@ -158,9 +159,12 @@ jobs:
           {
             echo "CONFIG_PACKAGE_liblua=y"
             echo "CONFIG_PACKAGE_lua=y"
+            echo "CONFIG_PACKAGE_libucode=y"
+            echo "CONFIG_PACKAGE_ucode=y"
           } >> .config
           make defconfig
           make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
+          make package/utils/ucode/compile V=sc -j"$(nproc)" 2>&1 | tee "build-ucode.log"
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
           if ! make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"; then
             echo "Parallel build failed; retrying serially so the real error is visible."
@@ -173,10 +177,12 @@ jobs:
         run: |
           echo "===== build-lua.log ====="
           test -f "sdk/build-lua.log" && tail -n 300 "sdk/build-lua.log" || true
+          echo "===== build-ucode.log ====="
+          test -f "sdk/build-ucode.log" && tail -n 300 "sdk/build-ucode.log" || true
           echo "===== build-${PACKAGE_NAME}.log ====="
           test -f "sdk/build-${PACKAGE_NAME}.log" && tail -n 500 "sdk/build-${PACKAGE_NAME}.log" || true
           echo "===== likely errors ====="
-          grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" sdk/build-lua.log "sdk/build-${PACKAGE_NAME}.log" 2>/dev/null | tail -n 120 || true
+          grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" sdk/build-lua.log sdk/build-ucode.log "sdk/build-${PACKAGE_NAME}.log" 2>/dev/null | tail -n 120 || true
           echo "===== possible package logs ====="
           find sdk/build_dir -type f \( -name "*.log" -o -name "config.err" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) | sort || true
 
