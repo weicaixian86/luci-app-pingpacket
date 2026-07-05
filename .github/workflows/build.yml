@@ -148,7 +148,7 @@ jobs:
             echo "CONFIG_PACKAGE_lua=y"
           } >> .config
           make defconfig
-          make package/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
+          make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
           if ! make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"; then
             echo "Parallel build failed; retrying serially so the real error is visible."
