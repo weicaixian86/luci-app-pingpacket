@@ -82,6 +82,21 @@ jobs:
           mkdir -p sdk
           tar --zstd -xf openwrt-sdk.tar.zst -C sdk --strip-components=1
 
+      - name: Prepare OpenWrt feeds
+        shell: bash
+        run: |
+          cd sdk
+          if [ ! -f feeds.conf.default ]; then
+            FEEDS_BRANCH="openwrt-${OPENWRT_VERSION%.*}"
+            {
+              printf 'src-git packages https://git.openwrt.org/feed/packages.git;%s\n' "$FEEDS_BRANCH"
+              printf 'src-git luci https://git.openwrt.org/project/luci.git;%s\n' "$FEEDS_BRANCH"
+            } > feeds.conf.default
+          fi
+          ./scripts/feeds update packages luci
+          ./scripts/feeds install curl
+          ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
+
       - name: Detect package source dir
         shell: bash
         run: |
