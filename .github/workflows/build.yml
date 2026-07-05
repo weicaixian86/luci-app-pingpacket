@@ -94,6 +94,18 @@ jobs:
           ./scripts/feeds update packages luci
           ./scripts/feeds install curl
           ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
+          if [ ! -f package/utils/lua/Makefile ]; then
+            git clone \
+              --depth 1 \
+              --filter=blob:none \
+              --sparse \
+              --branch "$FEEDS_BRANCH" \
+              https://github.com/openwrt/openwrt.git \
+              ../openwrt-source
+            git -C ../openwrt-source sparse-checkout set package/utils/lua
+            mkdir -p package/utils
+            cp -a ../openwrt-source/package/utils/lua package/utils/
+          fi
 
       - name: Detect package source dir
         shell: bash
