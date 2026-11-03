@@ -159,11 +159,16 @@ jobs:
           {
             echo "CONFIG_PACKAGE_liblua=y"
             echo "CONFIG_PACKAGE_lua=y"
+            echo "CONFIG_PACKAGE_libjson-c=y"
+            echo "CONFIG_PACKAGE_zlib=y"
             echo "CONFIG_PACKAGE_libucode=y"
             echo "CONFIG_PACKAGE_ucode=y"
           } >> .config
           make defconfig
           make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
+          # ucode 的 CMake 依赖 json-c（必需）与 zlib（可选），必须先编译进 staging_dir
+          make package/libs/libjson-c/compile V=sc -j"$(nproc)" 2>&1 | tee "build-jsonc.log"
+          make package/libs/zlib/compile V=sc -j"$(nproc)" 2>&1 | tee "build-zlib.log"
           make package/utils/ucode/compile V=sc -j"$(nproc)" 2>&1 | tee "build-ucode.log"
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
           if ! make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"; then
@@ -177,6 +182,10 @@ jobs:
         run: |
           echo "===== build-lua.log ====="
           test -f "sdk/build-lua.log" && tail -n 300 "sdk/build-lua.log" || true
+          echo "===== build-jsonc.log ====="
+          test -f "sdk/build-jsonc.log" && tail -n 300 "sdk/build-jsonc.log" || true
+          echo "===== build-zlib.log ====="
+          test -f "sdk/build-zlib.log" && tail -n 300 "sdk/build-zlib.log" || true
           echo "===== build-ucode.log ====="
           test -f "sdk/build-ucode.log" && tail -n 300 "sdk/build-ucode.log" || true
           echo "===== build-${PACKAGE_NAME}.log ====="
