@@ -94,13 +94,16 @@ jobs:
           ./scripts/feeds update packages luci
           ./scripts/feeds install curl
           ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
-          # ucode 声明 HOST_BUILD_DEPENDS:=libjson-c/host、DEPENDS:=+libjson-c，
-          # 其 CMake 还会查找 zlib；SDK 只带 package/libs/toolchain，
-          # 这两个库必须从 openwrt 基础源码树复制进来才能编译
-          if [ ! -f package/utils/lua/Makefile ] \
-            || [ ! -f package/utils/ucode/Makefile ] \
-            || [ ! -f package/libs/libjson-c/Makefile ] \
-            || [ ! -f package/libs/zlib/Makefile ]; then
+          # SDK 的 package/ 只保留 toolchain 与 kernel/linux，lua/ucode 及其构建依赖
+          # （ucode: PKG_BUILD_DEPENDS=libmd、HOST_BUILD_DEPENDS=libjson-c/host，
+          #   CMake 另需 json-c 与 zlib）都必须从 openwrt 基础源码树补进来
+          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd"
+          MISSING=""
+          for pkg in $BASE_PKGS; do
+            [ -f "package/$pkg/Makefile" ] || MISSING="$MISSING $pkg"
+          done
+          if [ -n "$MISSING" ]; then
+            echo "Provisioning from openwrt source:$MISSING"
             git clone \
               --depth 1 \
               --filter=blob:none \
@@ -108,17 +111,21 @@ jobs:
               --branch "$FEEDS_BRANCH" \
               https://github.com/openwrt/openwrt.git \
               ../openwrt-source
+            # shellcheck disable=SC2046
             git -C ../openwrt-source sparse-checkout set \
-              package/utils/lua \
-              package/utils/ucode \
-              package/libs/libjson-c \
-              package/libs/zlib
-            mkdir -p package/utils package/libs
-            [ -f package/utils/lua/Makefile ] || cp -a ../openwrt-source/package/utils/lua package/utils/
-            [ -f package/utils/ucode/Makefile ] || cp -a ../openwrt-source/package/utils/ucode package/utils/
-            [ -f package/libs/libjson-c/Makefile ] || cp -a ../openwrt-source/package/libs/libjson-c package/libs/
-            [ -f package/libs/zlib/Makefile ] || cp -a ../openwrt-source/package/libs/zlib package/libs/
+              $(for pkg in $BASE_PKGS; do printf 'package/%s ' "$pkg"; done)
+            for pkg in $MISSING; do
+              mkdir -p "package/$(dirname "$pkg")"
+              cp -a "../openwrt-source/package/$pkg" "package/$(dirname "$pkg")/"
+            done
           fi
+          for pkg in $BASE_PKGS; do
+            if [ ! -f "package/$pkg/Makefile" ]; then
+              echo "::error::package/$pkg is missing from the SDK tree"
+              exit 1
+            fi
+          done
+          echo "Base packages ready: $BASE_PKGS"
 
       - name: Detect package source dir
         shell: bash
@@ -178,12 +185,15 @@ jobs:
           } >> .config
           make defconfig
           make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
-          # 先确认基础库存在（Prepare 步骤已从源码树复制），再编译进 staging_dir；
-          # ucode 的 CMake 依赖 json-c（必需）与 zlib（可选）
-          test -f package/libs/libjson-c/Makefile
-          test -f package/libs/zlib/Makefile
-          make package/libs/libjson-c/compile V=sc -j"$(nproc)" 2>&1 | tee "build-jsonc.log"
-          make package/libs/zlib/compile V=sc -j"$(nproc)" 2>&1 | tee "build-zlib.log"
+          # 基础库必须先编译进 staging_dir，否则 ucode 的 CMake/pkg-config 找不到它们：
+          # libmd 是 PKG_BUILD_DEPENDS，libjson-c 是 HOST_BUILD_DEPENDS/DEPENDS，zlib 可选
+          for dep in libs/libjson-c libs/zlib libs/libmd; do
+            if [ ! -f "package/$dep/Makefile" ]; then
+              echo "::error::required base package $dep is missing"
+              exit 1
+            fi
+            make "package/$dep/compile" V=sc -j"$(nproc)" 2>&1 | tee "build-$(basename "$dep").log"
+          done
           make package/utils/ucode/compile V=sc -j"$(nproc)" 2>&1 | tee "build-ucode.log"
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
           if ! make "$PACKAGE_BUILD_TARGET" V=sc -j"$(nproc)" 2>&1 | tee "build-${PACKAGE_NAME}.log"; then
@@ -195,18 +205,16 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          echo "===== build-lua.log ====="
-          test -f "sdk/build-lua.log" && tail -n 300 "sdk/build-lua.log" || true
-          echo "===== build-jsonc.log ====="
-          test -f "sdk/build-jsonc.log" && tail -n 300 "sdk/build-jsonc.log" || true
-          echo "===== build-zlib.log ====="
-          test -f "sdk/build-zlib.log" && tail -n 300 "sdk/build-zlib.log" || true
-          echo "===== build-ucode.log ====="
-          test -f "sdk/build-ucode.log" && tail -n 300 "sdk/build-ucode.log" || true
-          echo "===== build-${PACKAGE_NAME}.log ====="
-          test -f "sdk/build-${PACKAGE_NAME}.log" && tail -n 500 "sdk/build-${PACKAGE_NAME}.log" || true
+          for log in build-lua.log build-libjson-c.log build-zlib.log build-libmd.log build-ucode.log "build-${PACKAGE_NAME}.log"; do
+            echo "===== $log ====="
+            if [ -f "sdk/$log" ]; then
+              tail -n 400 "sdk/$log"
+            else
+              echo "(not generated)"
+            fi
+          done
           echo "===== likely errors ====="
-          grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" sdk/build-lua.log sdk/build-jsonc.log sdk/build-zlib.log sdk/build-ucode.log "sdk/build-${PACKAGE_NAME}.log" 2>/dev/null | tail -n 120 || true
+          grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|required packages were not found)([^[:alpha:]]|$)" sdk/build-*.log 2>/dev/null | tail -n 120 || true
           echo "===== possible package logs ====="
           find sdk/build_dir -type f \( -name "*.log" -o -name "config.err" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) | sort || true
 
