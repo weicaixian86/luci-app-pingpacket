@@ -94,7 +94,13 @@ jobs:
           ./scripts/feeds update packages luci
           ./scripts/feeds install curl
           ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
-          if [ ! -f package/utils/lua/Makefile ] || [ ! -f package/utils/ucode/Makefile ]; then
+          # ucode 声明 HOST_BUILD_DEPENDS:=libjson-c/host、DEPENDS:=+libjson-c，
+          # 其 CMake 还会查找 zlib；SDK 只带 package/libs/toolchain，
+          # 这两个库必须从 openwrt 基础源码树复制进来才能编译
+          if [ ! -f package/utils/lua/Makefile ] \
+            || [ ! -f package/utils/ucode/Makefile ] \
+            || [ ! -f package/libs/libjson-c/Makefile ] \
+            || [ ! -f package/libs/zlib/Makefile ]; then
             git clone \
               --depth 1 \
               --filter=blob:none \
@@ -102,10 +108,16 @@ jobs:
               --branch "$FEEDS_BRANCH" \
               https://github.com/openwrt/openwrt.git \
               ../openwrt-source
-            git -C ../openwrt-source sparse-checkout set package/utils/lua package/utils/ucode
-            mkdir -p package/utils
+            git -C ../openwrt-source sparse-checkout set \
+              package/utils/lua \
+              package/utils/ucode \
+              package/libs/libjson-c \
+              package/libs/zlib
+            mkdir -p package/utils package/libs
             [ -f package/utils/lua/Makefile ] || cp -a ../openwrt-source/package/utils/lua package/utils/
             [ -f package/utils/ucode/Makefile ] || cp -a ../openwrt-source/package/utils/ucode package/utils/
+            [ -f package/libs/libjson-c/Makefile ] || cp -a ../openwrt-source/package/libs/libjson-c package/libs/
+            [ -f package/libs/zlib/Makefile ] || cp -a ../openwrt-source/package/libs/zlib package/libs/
           fi
 
       - name: Detect package source dir
@@ -166,7 +178,10 @@ jobs:
           } >> .config
           make defconfig
           make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
-          # ucode 的 CMake 依赖 json-c（必需）与 zlib（可选），必须先编译进 staging_dir
+          # 先确认基础库存在（Prepare 步骤已从源码树复制），再编译进 staging_dir；
+          # ucode 的 CMake 依赖 json-c（必需）与 zlib（可选）
+          test -f package/libs/libjson-c/Makefile
+          test -f package/libs/zlib/Makefile
           make package/libs/libjson-c/compile V=sc -j"$(nproc)" 2>&1 | tee "build-jsonc.log"
           make package/libs/zlib/compile V=sc -j"$(nproc)" 2>&1 | tee "build-zlib.log"
           make package/utils/ucode/compile V=sc -j"$(nproc)" 2>&1 | tee "build-ucode.log"
@@ -191,7 +206,7 @@ jobs:
           echo "===== build-${PACKAGE_NAME}.log ====="
           test -f "sdk/build-${PACKAGE_NAME}.log" && tail -n 500 "sdk/build-${PACKAGE_NAME}.log" || true
           echo "===== likely errors ====="
-          grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" sdk/build-lua.log sdk/build-ucode.log "sdk/build-${PACKAGE_NAME}.log" 2>/dev/null | tail -n 120 || true
+          grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|not found)([^[:alpha:]]|$)" sdk/build-lua.log sdk/build-jsonc.log sdk/build-zlib.log sdk/build-ucode.log "sdk/build-${PACKAGE_NAME}.log" 2>/dev/null | tail -n 120 || true
           echo "===== possible package logs ====="
           find sdk/build_dir -type f \( -name "*.log" -o -name "config.err" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) | sort || true
 
