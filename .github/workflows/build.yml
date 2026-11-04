@@ -95,9 +95,10 @@ jobs:
           ./scripts/feeds install curl
           ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
           # SDK 的 package/ 只保留 toolchain 与 kernel/linux，lua/ucode 及其构建依赖
-          # （ucode: PKG_BUILD_DEPENDS=libmd、HOST_BUILD_DEPENDS=libjson-c/host，
-          #   CMake 另需 json-c 与 zlib）都必须从 openwrt 基础源码树补进来
-          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd"
+          # 都必须从 openwrt 基础源码树补进来：
+          #   ucode: PKG_BUILD_DEPENDS=libmd、HOST_BUILD_DEPENDS=libjson-c/host
+          #   ucode CMake: json-c / zlib / libmd / libubox(uloop) / ubus(ubus.h)
+          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd libs/libubox system/uci system/ubus"
           MISSING=""
           for pkg in $BASE_PKGS; do
             [ -f "package/$pkg/Makefile" ] || MISSING="$MISSING $pkg"
@@ -180,14 +181,19 @@ jobs:
             echo "CONFIG_PACKAGE_lua=y"
             echo "CONFIG_PACKAGE_libjson-c=y"
             echo "CONFIG_PACKAGE_zlib=y"
+            echo "CONFIG_PACKAGE_libmd=y"
+            echo "CONFIG_PACKAGE_libubox=y"
+            echo "CONFIG_PACKAGE_libuci=y"
+            echo "CONFIG_PACKAGE_ubus=y"
             echo "CONFIG_PACKAGE_libucode=y"
             echo "CONFIG_PACKAGE_ucode=y"
           } >> .config
           make defconfig
           make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
           # 基础库必须先编译进 staging_dir，否则 ucode 的 CMake/pkg-config 找不到它们：
-          # libmd 是 PKG_BUILD_DEPENDS，libjson-c 是 HOST_BUILD_DEPENDS/DEPENDS，zlib 可选
-          for dep in libs/libjson-c libs/zlib libs/libmd; do
+          # libmd 是 PKG_BUILD_DEPENDS，libjson-c 是 HOST_BUILD_DEPENDS/DEPENDS，
+          # libubox/ubus 提供 uloop.h 与 ubus.h（CMakeLists 里的 ubus_include_dir），zlib 可选
+          for dep in libs/libjson-c libs/zlib libs/libmd libs/libubox system/uci system/ubus; do
             if [ ! -f "package/$dep/Makefile" ]; then
               echo "::error::required base package $dep is missing"
               exit 1
