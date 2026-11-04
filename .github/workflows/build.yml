@@ -99,7 +99,8 @@ jobs:
           #   pkg_check_modules: json-c(REQUIRED) / libmd(REQUIRED) / zlib(可选)
           #   find_path: libubox/uloop.h、libubox/ulog.h、libubus.h、uci.h、
           #              netlink/msg.h(PATH_SUFFIXES libnl-tiny)
-          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus"
+          # luci-base 依赖链：rpcd-mod-luci 的 PKG_BUILD_DEPENDS:=iwinfo（iwinfo.h）
+          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo"
           MISSING=""
           for pkg in $BASE_PKGS; do
             [ -f "package/$pkg/Makefile" ] || MISSING="$MISSING $pkg"
@@ -187,6 +188,8 @@ jobs:
             echo "CONFIG_PACKAGE_libubox=y"
             echo "CONFIG_PACKAGE_libuci=y"
             echo "CONFIG_PACKAGE_ubus=y"
+            echo "CONFIG_PACKAGE_iwinfo=y"
+            echo "CONFIG_PACKAGE_libiwinfo=y"
             echo "CONFIG_PACKAGE_libucode=y"
             echo "CONFIG_PACKAGE_ucode=y"
           } >> .config
@@ -195,8 +198,9 @@ jobs:
           # 基础库必须先编译进 staging_dir，否则 ucode 的 CMake/pkg-config 找不到它们：
           # libmd 是 PKG_BUILD_DEPENDS，libjson-c 是 HOST_BUILD_DEPENDS/DEPENDS，
           # libubox/ubus 提供 uloop.h、ulog.h、libubus.h，
-          # libnl-tiny 提供 netlink/msg.h（装到 include/libnl-tiny），zlib 可选
-          for dep in libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus; do
+          # libnl-tiny 提供 netlink/msg.h（装到 include/libnl-tiny），zlib 可选；
+          # iwinfo 提供 iwinfo.h，rpcd-mod-luci 的 PKG_BUILD_DEPENDS 需要它
+          for dep in libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo; do
             if [ ! -f "package/$dep/Makefile" ]; then
               echo "::error::required base package $dep is missing"
               exit 1
