@@ -99,8 +99,10 @@ jobs:
           #   pkg_check_modules: json-c(REQUIRED) / libmd(REQUIRED) / zlib(可选)
           #   find_path: libubox/uloop.h、libubox/ulog.h、libubus.h、uci.h、
           #              netlink/msg.h(PATH_SUFFIXES libnl-tiny)
-          # luci-base 依赖链：rpcd-mod-luci 的 PKG_BUILD_DEPENDS:=iwinfo（iwinfo.h）
-          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo"
+          # luci-base 依赖链：rpcd-mod-luci 的 PKG_BUILD_DEPENDS:=iwinfo（iwinfo.h），
+          # 其源码还 #include <rpcd/plugin.h>，该头由 rpcd 的 Build/InstallDev
+          # 装到 staging_dir/usr/include/rpcd，但 rpcd 未声明为构建依赖，需手工补
+          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo system/rpcd"
           MISSING=""
           for pkg in $BASE_PKGS; do
             [ -f "package/$pkg/Makefile" ] || MISSING="$MISSING $pkg"
@@ -190,6 +192,7 @@ jobs:
             echo "CONFIG_PACKAGE_ubus=y"
             echo "CONFIG_PACKAGE_iwinfo=y"
             echo "CONFIG_PACKAGE_libiwinfo=y"
+            echo "CONFIG_PACKAGE_rpcd=y"
             echo "CONFIG_PACKAGE_libucode=y"
             echo "CONFIG_PACKAGE_ucode=y"
           } >> .config
@@ -199,8 +202,9 @@ jobs:
           # libmd 是 PKG_BUILD_DEPENDS，libjson-c 是 HOST_BUILD_DEPENDS/DEPENDS，
           # libubox/ubus 提供 uloop.h、ulog.h、libubus.h，
           # libnl-tiny 提供 netlink/msg.h（装到 include/libnl-tiny），zlib 可选；
-          # iwinfo 提供 iwinfo.h，rpcd-mod-luci 的 PKG_BUILD_DEPENDS 需要它
-          for dep in libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo; do
+          # iwinfo 提供 iwinfo.h，rpcd-mod-luci 的 PKG_BUILD_DEPENDS 需要它；
+          # rpcd 提供 usr/include/rpcd/plugin.h，rpcd-mod-luci 直接 include
+          for dep in libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo system/rpcd; do
             if [ ! -f "package/$dep/Makefile" ]; then
               echo "::error::required base package $dep is missing"
               exit 1
