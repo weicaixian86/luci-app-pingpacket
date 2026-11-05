@@ -92,7 +92,8 @@ jobs:
             printf 'src-git luci https://git.openwrt.org/project/luci.git;%s\n' "$FEEDS_BRANCH"
           } > feeds.conf.default
           ./scripts/feeds update packages luci
-          ./scripts/feeds install curl
+          # libcurl 的 DEPENDS 含 +LIBCURL_HTTP2:libnghttp2，feeds 里必须 install 才可见
+          ./scripts/feeds install curl libnghttp2
           ./scripts/feeds install -p luci luci-base luci-lua-runtime luci-compat
           # SDK 的 package/ 只保留 toolchain 与 kernel/linux，lua/ucode 及其构建依赖
           # 都必须从 openwrt 基础源码树补进来。ucode(85922056) 的 CMake 检查项：
@@ -102,7 +103,11 @@ jobs:
           # luci-base 依赖链：rpcd-mod-luci 的 PKG_BUILD_DEPENDS:=iwinfo（iwinfo.h），
           # 其源码还 #include <rpcd/plugin.h>，该头由 rpcd 的 Build/InstallDev
           # 装到 staging_dir/usr/include/rpcd，但 rpcd 未声明为构建依赖，需手工补
-          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo system/rpcd"
+          # curl 的 TLS 后端由 feeds/net/curl/Config.in 决定，默认 LIBCURL_MBEDTLS，
+          # 其 DEPENDS 为 +libmbedtls；SDK 里同样没有 package/libs/mbedtls，
+          # 缺它会让 curl configure 直接报 "TLS not detected"。ca-bundle 是
+          # libcurl 的硬依赖（curl 用 --with-ca-bundle 指向其生成的证书包）。
+          BASE_PKGS="utils/lua utils/ucode libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo system/rpcd libs/mbedtls system/ca-certificates"
           MISSING=""
           for pkg in $BASE_PKGS; do
             [ -f "package/$pkg/Makefile" ] || MISSING="$MISSING $pkg"
@@ -195,6 +200,13 @@ jobs:
             echo "CONFIG_PACKAGE_rpcd=y"
             echo "CONFIG_PACKAGE_libucode=y"
             echo "CONFIG_PACKAGE_ucode=y"
+            echo "CONFIG_PACKAGE_libmbedtls=y"
+            echo "CONFIG_LIBCURL_MBEDTLS=y"
+            echo "CONFIG_LIBCURL_HTTP2=y"
+            echo "CONFIG_PACKAGE_libnghttp2=y"
+            echo "CONFIG_PACKAGE_ca-bundle=y"
+            echo "CONFIG_PACKAGE_libcurl=y"
+            echo "CONFIG_PACKAGE_curl=y"
           } >> .config
           make defconfig
           make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
@@ -203,13 +215,25 @@ jobs:
           # libubox/ubus 提供 uloop.h、ulog.h、libubus.h，
           # libnl-tiny 提供 netlink/msg.h（装到 include/libnl-tiny），zlib 可选；
           # iwinfo 提供 iwinfo.h，rpcd-mod-luci 的 PKG_BUILD_DEPENDS 需要它；
-          # rpcd 提供 usr/include/rpcd/plugin.h，rpcd-mod-luci 直接 include
-          for dep in libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo system/rpcd; do
+          # rpcd 提供 usr/include/rpcd/plugin.h，rpcd-mod-luci 直接 include；
+          # mbedtls 是 libcurl 默认 TLS 后端（LIBCURL_MBEDTLS）的 DEPENDS，
+          # ca-certificates 提供 ca-bundle（curl 的 --with-ca-bundle 指向它），
+          # 两者缺一都会让 curl configure 报 "TLS not detected"
+          BASE_BUILD="libs/libjson-c libs/zlib libs/libmd libs/libnl-tiny libs/libubox system/uci system/ubus network/utils/iwinfo system/rpcd libs/mbedtls system/ca-certificates"
+          for dep in $BASE_BUILD; do
             if [ ! -f "package/$dep/Makefile" ]; then
               echo "::error::required base package $dep is missing"
               exit 1
             fi
             make "package/$dep/compile" V=sc -j"$(nproc)" 2>&1 | tee "build-$(basename "$dep").log"
+          done
+          # feeds 里的包走 package/feeds/<feed>/<name> 路径，TLS 后端就绪后再编 curl 链
+          for dep in libnghttp2 curl; do
+            if [ ! -f "package/feeds/packages/$dep/Makefile" ]; then
+              echo "::error::required feed package $dep is missing"
+              exit 1
+            fi
+            make "package/feeds/packages/$dep/compile" V=sc -j"$(nproc)" 2>&1 | tee "build-$dep.log"
           done
           make package/utils/ucode/compile V=sc -j"$(nproc)" 2>&1 | tee "build-ucode.log"
           echo "Using BUILD_TARGET=$PACKAGE_BUILD_TARGET"
@@ -222,13 +246,10 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          for log in build-lua.log build-libjson-c.log build-zlib.log build-libmd.log build-ucode.log "build-${PACKAGE_NAME}.log"; do
+          for log in sdk/build-*.log; do
+            [ -f "$log" ] || continue
             echo "===== $log ====="
-            if [ -f "sdk/$log" ]; then
-              tail -n 400 "sdk/$log"
-            else
-              echo "(not generated)"
-            fi
+            tail -n 400 "$log"
           done
           echo "===== likely errors ====="
           grep -nEi "(^|[^[:alpha:]])(error|fatal|failed|no rule|undefined reference|cannot find|required packages were not found)([^[:alpha:]]|$)" sdk/build-*.log 2>/dev/null | tail -n 120 || true
