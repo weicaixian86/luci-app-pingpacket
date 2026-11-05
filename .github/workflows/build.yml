@@ -210,6 +210,23 @@ jobs:
             echo "CONFIG_PACKAGE_curl=y"
           } >> .config
           make defconfig
+          # make defconfig 会把依赖不满足的包静默丢弃（例如 ca-bundle 不在树里时
+          # libcurl 直接消失），此时后续的 make 既不报错也不编译该包，最终只在
+          # app 编译末尾抛一句很难定位的 "required packages were not found"。
+          # 这里提前断言关键开关真的被选中，把问题变成一行明确的提示。
+          REQUIRED_CONF="CONFIG_PACKAGE_libmbedtls CONFIG_LIBCURL_MBEDTLS CONFIG_LIBCURL_HTTP2 CONFIG_PACKAGE_libnghttp2 CONFIG_PACKAGE_ca-bundle CONFIG_PACKAGE_libcurl CONFIG_PACKAGE_curl"
+          MISSING_CONF=""
+          for sym in $REQUIRED_CONF; do
+            grep -qx "${sym}=y" .config || MISSING_CONF="$MISSING_CONF $sym"
+          done
+          if [ -n "$MISSING_CONF" ]; then
+            echo "::error::defconfig dropped required symbols:$MISSING_CONF"
+            for sym in $MISSING_CONF; do
+              grep -nE "^# ${sym} is not set|^${sym}=" .config || true
+            done
+            exit 1
+          fi
+          echo "Required config symbols confirmed: $REQUIRED_CONF"
           make package/utils/lua/compile V=sc -j"$(nproc)" 2>&1 | tee "build-lua.log"
           # 基础库必须先编译进 staging_dir，否则 ucode 的 CMake/pkg-config 找不到它们：
           # libmd 是 PKG_BUILD_DEPENDS，libjson-c 是 HOST_BUILD_DEPENDS/DEPENDS，
