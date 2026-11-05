@@ -3,12 +3,13 @@ name: Build luci-app-pingpacket for OpenWrt
 on:
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: "Release tag"
+      tag:
+        description: "版本号（例如 2.0.0；不需要 v 前缀）"
+        type: string
         required: true
-        default: "v1.0.0"
-      release_description:
-        description: "Release description"
+      description:
+        description: "Release 描述（可选，默认留空）"
+        type: string
         required: false
         default: ""
 
@@ -52,14 +53,22 @@ jobs:
 
       - name: Set package version from release tag
         shell: bash
+        env:
+          RAW_INPUT: ${{ github.event.inputs.tag }}
         run: |
-          RAW_TAG="${{ github.event.inputs.release_tag }}"
-          VERSION="${RAW_TAG#v}"
+          # 输入框里填的是纯版本号（2.0.0），仓库既有 tag 习惯是带 v 前缀，
+          # 这里统一补上；万一手滑填了 v2.0.0 也不会变成 vv2.0.0。
+          VERSION="${RAW_INPUT#v}"
           VERSION="${VERSION#V}"
-          test -n "$RAW_TAG"
-          test -n "$VERSION"
-          echo "RAW_TAG=$RAW_TAG" >> "$GITHUB_ENV"
+          VERSION="${VERSION# }"
+          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+(\.[0-9]+)*([-+~][0-9A-Za-z.+~-]+)?$'; then
+            echo "::error::invalid version '$RAW_INPUT'; expected something like 2.0.0"
+            exit 1
+          fi
+          TAG="v${VERSION}"
+          echo "RAW_TAG=$TAG" >> "$GITHUB_ENV"
           echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Version: $VERSION (tag: $TAG)"
 
       - name: Install build dependencies
         shell: bash
@@ -315,9 +324,22 @@ jobs:
 
       - name: Set release metadata
         shell: bash
+        env:
+          RAW_INPUT: ${{ github.event.inputs.tag }}
+          RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
         run: |
+          # release job 没有 checkout，拿不到 build job 里写进 GITHUB_ENV 的
+          # RAW_TAG，所以这里按同样规则重新归一化一次。
+          VERSION="${RAW_INPUT#v}"
+          VERSION="${VERSION#V}"
+          VERSION="${VERSION# }"
+          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+(\.[0-9]+)*([-+~][0-9A-Za-z.+~-]+)?$'; then
+            echo "::error::invalid version '$RAW_INPUT'; expected something like 2.0.0"
+            exit 1
+          fi
+          TAG="v${VERSION}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
           BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S %Z')"
-          RELEASE_DESCRIPTION="${{ github.event.inputs.release_description }}"
           {
             echo "RELEASE_BODY<<EOF"
             if [ -n "$RELEASE_DESCRIPTION" ]; then
@@ -335,7 +357,7 @@ jobs:
         uses: dev-drprasad/delete-tag-and-release@v1.1
         with:
           delete_release: true
-          tag_name: ${{ github.event.inputs.release_tag }}
+          tag_name: ${{ env.TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
@@ -343,8 +365,8 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.release_tag }}
-          name: ${{ github.event.inputs.release_tag }}
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
           body: ${{ env.RELEASE_BODY }}
           files: release-dist/*
           draft: false
